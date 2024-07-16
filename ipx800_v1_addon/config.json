@@ -20,6 +20,6 @@
     "full_access": true,
     "hassio_api": true,
     "homeassistant_api": true,
-    "image": "telecom4all/portfolio_crypto"
+    "image": "telecom4all/ipx800_v1"
   }
   
