@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Créez le répertoire si nécessaire
+echo "création du repertoire custom_components/ipx800_v1"
 mkdir -p /config/custom_components/ipx800_v1
 
 # Copiez le composant personnalisé dans le répertoire custom_components de Home Assistant
+echo "copy custom_components/ipx800_v1/"
 cp -r /app/custom_components/ipx800_v1/* /config/custom_components/ipx800_v1/
 
 
