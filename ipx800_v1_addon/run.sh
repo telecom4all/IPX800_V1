@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Créez le répertoire si nécessaire
-mkdir -p /config/custom_components/portfolio_crypto
+mkdir -p /config/custom_components/ipx800_v1
 
 # Copiez le composant personnalisé dans le répertoire custom_components de Home Assistant
 cp -r /app/custom_components/ipx800_v1/* /config/custom_components/ipx800_v1/
