@@ -1,0 +1,10 @@
+{
+    "domain": "ipx800",
+    "name": "IPX800 Integration",
+    "version": "1.0.0",
+    "documentation": "https://github.com/telecom4all/IPX800_V1",
+    "requirements": [],
+    "dependencies": [],
+    "codeowners": ["@yourusername"]
+  }
+  
