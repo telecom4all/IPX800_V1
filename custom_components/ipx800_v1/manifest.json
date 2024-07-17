@@ -1,5 +1,5 @@
 {
-    "domain": "ipx800_V1",
+    "domain": "ipx800_v1",
     "name": "IPX800_V1 Integration",
     "version": "1.0.0",
     "documentation": "https://github.com/telecom4all/IPX800_V1",
@@ -8,4 +8,3 @@
     "codeowners": ["AngelZ"],
     "config_flow": true
   }
-  

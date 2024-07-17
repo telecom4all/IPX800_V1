@@ -58,5 +58,12 @@ EOL
 echo "Starting Flask with Gunicorn"
 gunicorn --config $GUNICORN_CONF --bind 0.0.0.0:5213 ipx800_v1:app &
 
-# Keep the script running
+# Attendre que l'application Flask démarre correctement
+sleep 5
+
+# Afficher un message à l'utilisateur pour redémarrer Home Assistant
+echo "L'installation est terminée. Veuillez redémarrer Home Assistant pour terminer la configuration."
+
+# Continuer à exécuter Gunicorn en premier plan
 wait
+
