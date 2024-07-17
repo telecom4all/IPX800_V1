@@ -43,3 +43,4 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("output_leds"): vol.All(vol.Coerce(list), [vol.In(["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"])]),
             })
         )
+ 
