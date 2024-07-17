@@ -3,8 +3,8 @@
     "version": "1.0.0",
     "slug": "ipx800_v1",
     "description": "An addon to interact with IPX800 devices",
-    "arch": ["amd64", "armv7", "armhf"],
-    "startup": "application",
+    "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+    "startup": "services",
     "boot": "auto",
     "options": {
       "ipx800_ip": "192.168.1.121",
@@ -14,13 +14,13 @@
       "ipx800_ip": "str",
       "poll_interval": "int"
     },
+    "host_network": true,
     "url": "https://github.com/telecom4all/IPX800_V1",
     "privileged": ["SYS_ADMIN"],
     "host_dbus": true,
     "full_access": true,
     "hassio_api": true,
     "homeassistant_api": true,
-    "map": ["config:rw"],
-    "docker_api": true
+    "map": ["config:rw", "ssl"]
   }
   
