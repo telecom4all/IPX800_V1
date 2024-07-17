@@ -7,12 +7,12 @@
   "startup": "application",
   "boot": "auto",
   "options": {
-      "ipx800_ip": "192.168.1.121",
-      "poll_interval": 2
+    "ipx800_ip": "192.168.1.121",
+    "poll_interval": 2
   },
   "schema": {
-      "ipx800_ip": "str",
-      "poll_interval": "int"
+    "ipx800_ip": "str",
+    "poll_interval": "int"
   },
   "url": "https://github.com/telecom4all/IPX800_V1",
   "privileged": ["SYS_ADMIN"],
@@ -20,5 +20,6 @@
   "full_access": true,
   "hassio_api": true,
   "homeassistant_api": true,
-  "map": ["config:rw"]
+  "map": ["config:rw"],
+  "docker_api": true
 }

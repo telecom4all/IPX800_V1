@@ -14,6 +14,9 @@ COPY custom_components/ipx800_v1 /app/custom_components/ipx800_v1
 # Copier le requirements.txt
 COPY ipx800_v1_addon/requirements.txt /app/requirements.txt
 
+# Modifier les permissions des fichiers
+RUN chmod -R 755 /app/ipx800_v1.py /app/run.sh /app/custom_components/ipx800_v1
+
 # Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip list
