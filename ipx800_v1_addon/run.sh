@@ -56,7 +56,7 @@ EOL
 
 # Démarrer l'application Flask avec Gunicorn
 echo "Starting Flask with Gunicorn"
-gunicorn --config $GUNICORN_CONF --bind 0.0.0.0:5000 ipx800_v1:app &
+gunicorn --config $GUNICORN_CONF --bind 0.0.0.0:5213 ipx800_v1:app &
 
 # Keep the script running
 wait
