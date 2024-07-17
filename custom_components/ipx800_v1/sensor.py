@@ -1,15 +1,25 @@
 from homeassistant.helpers.entity import Entity
 from homeassistant.const import CONF_IP_ADDRESS
+from .const import CONF_POLL_INTERVAL, CONF_API_URL
 import requests
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     ip_address = config_entry.data[CONF_IP_ADDRESS]
-    async_add_entities([IPX800Sensor(ip_address)])
+    poll_interval = config_entry.data[CONF_POLL_INTERVAL]
+    api_url = config_entry.data[CONF_API_URL]
+    _LOGGER.info(f"Setting up IPX800 sensor with IP: {ip_address}, poll interval: {poll_interval}, and API URL: {api_url}")
+    async_add_entities([IPX800Sensor(ip_address, poll_interval, api_url)])
 
 class IPX800Sensor(Entity):
-    def __init__(self, ip_address):
+    def __init__(self, ip_address, poll_interval, api_url):
         self._ip_address = ip_address
+        self._poll_interval = poll_interval
+        self._api_url = api_url
         self._state = None
+        _LOGGER.info(f"Initialized IPX800 Sensor with IP: {self._ip_address}, poll interval: {self._poll_interval}, and API URL: {self._api_url}")
 
     @property
     def name(self):
@@ -20,9 +30,28 @@ class IPX800Sensor(Entity):
         return self._state
 
     async def async_update(self):
-        url = f"http://{self._ip_address}/status.xml"
+        url = f"{self._api_url}/status"
+        _LOGGER.info(f"Updating IPX800 sensor from URL: {url}")
         response = await self.hass.async_add_executor_job(requests.get, url)
         if response.status_code == 200:
-            self._state = response.text
+            _LOGGER.info("Successfully updated IPX800 sensor")
+            self._state = response.json()
         else:
+            _LOGGER.error(f"Failed to update IPX800 sensor: {response.status_code}")
             self._state = None
+
+    def handle_physical_switch(self, btn):
+        _LOGGER.info(f"Handling physical switch: {btn}")
+        if btn in ["btn0", "btn1", "btn2", "btn3"]:
+            # Send a request to the API to toggle corresponding LEDs based on physical switch
+            _LOGGER.info(f"Toggling LEDs for button: {btn}")
+            pass
+
+    def handle_virtual_button(self, led, state):
+        _LOGGER.info(f"Handling virtual button: LED {led} to state {state}")
+        url = f"{self._api_url}/set_led"
+        response = requests.post(url, json={'led': led, 'state': state})
+        if response.status_code == 200:
+            _LOGGER.info(f"Successfully set LED{led} to {state}")
+        else:
+            _LOGGER.error(f"Failed to set LED{led}: {response.status_code}")
