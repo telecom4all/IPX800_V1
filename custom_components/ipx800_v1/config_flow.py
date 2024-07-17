@@ -32,8 +32,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info("Starting IPX800 add device step")
         if user_input is not None:
             _LOGGER.info(f"Received add device input: {user_input}")
-            # Handle the input to add a new device
-            pass
+            return self.async_create_entry(title=user_input["device_name"], data=user_input)
 
         return self.async_show_form(
             step_id="add_device",
@@ -43,4 +42,27 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("output_leds"): vol.All(vol.Coerce(list), [vol.In(["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"])]),
             })
         )
- 
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return IPX800OptionsFlow(config_entry)
+
+
+class IPX800OptionsFlow(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Required("device_name", default=options.get("device_name", "")): str,
+                vol.Required("input_button", default=options.get("input_button", "btn0")): vol.In(["btn0", "btn1", "btn2", "btn3"]),
+                vol.Required("output_leds", default=options.get("output_leds", [])): vol.All(vol.Coerce(list), [vol.In(["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"])]),
+            })
+        )
