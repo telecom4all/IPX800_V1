@@ -1,10 +1,11 @@
 {
-    "domain": "ipx800",
-    "name": "IPX800 Integration",
+    "domain": "ipx800_V1",
+    "name": "IPX800_V1 Integration",
     "version": "1.0.0",
     "documentation": "https://github.com/telecom4all/IPX800_V1",
     "requirements": [],
     "dependencies": [],
-    "codeowners": ["@yourusername"]
+    "codeowners": ["@yourusername"],
+    "config_flow": true
   }
   

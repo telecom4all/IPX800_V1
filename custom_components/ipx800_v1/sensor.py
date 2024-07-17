@@ -1,5 +1,6 @@
 from homeassistant.helpers.entity import Entity
 from homeassistant.const import CONF_IP_ADDRESS
+import requests
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     ip_address = config_entry.data[CONF_IP_ADDRESS]
