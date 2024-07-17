@@ -5,7 +5,7 @@
     "documentation": "https://github.com/telecom4all/IPX800_V1",
     "requirements": [],
     "dependencies": [],
-    "codeowners": ["@yourusername"],
+    "codeowners": ["AngelZ"],
     "config_flow": true
   }
   
