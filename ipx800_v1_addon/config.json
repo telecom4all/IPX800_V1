@@ -1,26 +1,24 @@
 {
-    "name": "IPX800_V1 Addon",
-    "version": "1.0.0",
-    "slug": "ipx800_V1_addon",
-    "description": "An addon to interact with IPX800 devices",
-    "arch": ["amd64", "armv7", "armhf"],
-    "startup": "application",
-    "boot": "auto",
-    "options": {
+  "name": "IPX800_V1 Addon",
+  "version": "1.0.0",
+  "slug": "ipx800_v1_addon",
+  "description": "An addon to interact with IPX800 devices",
+  "arch": ["amd64", "armv7", "armhf"],
+  "startup": "application",
+  "boot": "auto",
+  "options": {
       "ipx800_ip": "192.168.1.121",
       "poll_interval": 2
-    },
-    "schema": {
+  },
+  "schema": {
       "ipx800_ip": "str",
       "poll_interval": "int"
-    },
-    "url": "https://github.com/telecom4all/IPX800_V1",
-    "privileged": ["SYS_ADMIN"],
-    "host_dbus": true,
-    "full_access": true,
-    "hassio_api": true,
-    "homeassistant_api": true,
-    "image": "telecom4all/ipx800_v1",
-    "map": ["config:rw"]
-  }
-  
+  },
+  "url": "https://github.com/telecom4all/IPX800_V1",
+  "privileged": ["SYS_ADMIN"],
+  "host_dbus": true,
+  "full_access": true,
+  "hassio_api": true,
+  "homeassistant_api": true,
+  "map": ["config:rw"]
+}
