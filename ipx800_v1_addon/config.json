@@ -20,6 +20,7 @@
     "host_dbus": true,
     "full_access": true,
     "hassio_api": true,
+    "image": "telecom4all/ipx800_v1",
     "homeassistant_api": true,
     "map": ["config:rw", "ssl"]
   }
