@@ -2,7 +2,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import device_registry as dr
-from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL
+from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL, APP_PORT
 import logging
 
 _LOGGER = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     api_url = config_entry.data[CONF_API_URL]
     _LOGGER.info(f"Setting up IPX800 sensor with IP: {ip_address}, poll interval: {poll_interval}, and API URL: {api_url}")
 
-    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
+    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
     sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led) for led in leds]
 
     async_add_entities(sensors)
@@ -44,18 +44,3 @@ class IPX800Sensor(Entity):
         else:
             _LOGGER.error(f"Failed to update IPX800 sensor: {response.status_code}")
             self._state = None
-
-    def handle_physical_switch(self, btn):
-        _LOGGER.info(f"Handling physical switch: {btn}")
-        if btn in ["btn0", "btn1", "btn2", "btn3"]:
-            _LOGGER.info(f"Toggling LEDs for button: {btn}")
-            pass
-
-    def handle_virtual_button(self, led, state):
-        _LOGGER.info(f"Handling virtual button: LED {led} to state {state}")
-        url = f"{self._api_url}/set_led"
-        response = requests.post(url, json={'led': led, 'state': state})
-        if response.status_code == 200:
-            _LOGGER.info(f"Successfully set LED{led} to {state}")
-        else:
-            _LOGGER.error(f"Failed to set LED{led}: {response.status_code}")

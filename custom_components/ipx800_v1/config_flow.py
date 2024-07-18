@@ -1,9 +1,9 @@
-import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_IP_ADDRESS, CONF_NAME
 import homeassistant.helpers.config_validation as cv
-from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL
+import voluptuous as vol
+from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL, APP_PORT
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME): str,
                 vol.Required(CONF_IP_ADDRESS): str,
                 vol.Required(CONF_POLL_INTERVAL, default=10): int,
-                vol.Required(CONF_API_URL, default="http://localhost:5000"): str,
+                vol.Required(CONF_API_URL, default=f"http://localhost:{APP_PORT}"): str,
             })
         )
 
@@ -56,7 +56,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         return IPX800OptionsFlow(config_entry)
 
-
 class IPX800OptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -71,13 +70,13 @@ class IPX800OptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Optional("device_name", default=options.get("device_name", "")): str,
                 vol.Optional("input_button", default=options.get("input_button", "btn0")): vol.In(["btn0", "btn1", "btn2", "btn3"]),
-                vol.Optional("led0", description={"suggested_value": "LED 0"}): bool,
-                vol.Optional("led1", description={"suggested_value": "LED 1"}): bool,
-                vol.Optional("led2", description={"suggested_value": "LED 2"}): bool,
-                vol.Optional("led3", description={"suggested_value": "LED 3"}): bool,
-                vol.Optional("led4", description={"suggested_value": "LED 4"}): bool,
-                vol.Optional("led5", description={"suggested_value": "LED 5"}): bool,
-                vol.Optional("led6", description={"suggested_value": "LED 6"}): bool,
-                vol.Optional("led7", description={"suggested_value": "LED 7"}): bool,
+                vol.Optional("led0", description={"suggested_value": options.get("led0", False)}): bool,
+                vol.Optional("led1", description={"suggested_value": options.get("led1", False)}): bool,
+                vol.Optional("led2", description={"suggested_value": options.get("led2", False)}): bool,
+                vol.Optional("led3", description={"suggested_value": options.get("led3", False)}): bool,
+                vol.Optional("led4", description={"suggested_value": options.get("led4", False)}): bool,
+                vol.Optional("led5", description={"suggested_value": options.get("led5", False)}): bool,
+                vol.Optional("led6", description={"suggested_value": options.get("led6", False)}): bool,
+                vol.Optional("led7", description={"suggested_value": options.get("led7", False)}): bool,
             })
         )
