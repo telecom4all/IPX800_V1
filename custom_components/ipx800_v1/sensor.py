@@ -10,25 +10,29 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     ip_address = config_entry.data[CONF_IP_ADDRESS]
     poll_interval = config_entry.data[CONF_POLL_INTERVAL]
     api_url = config_entry.data[CONF_API_URL]
+    device_name = config_entry.data.get("device_name")
+    input_button = config_entry.data.get("input_button")
     _LOGGER.info(f"Setting up IPX800 sensor with IP: {ip_address}, poll interval: {poll_interval}, and API URL: {api_url}")
 
-    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
-    sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led) for led in leds]
+    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
+    sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led, input_button, device_name) for led in leds]
 
     async_add_entities(sensors)
 
 class IPX800Sensor(Entity):
-    def __init__(self, ip_address, poll_interval, api_url, led):
+    def __init__(self, ip_address, poll_interval, api_url, led, input_button, device_name):
         self._ip_address = ip_address
         self._poll_interval = poll_interval
         self._api_url = api_url
         self._state = None
         self._led = led
-        _LOGGER.info(f"Initialized IPX800 Sensor with IP: {self._ip_address}, poll interval: {self._poll_interval}, API URL: {self._api_url}, and LED: {self._led}")
+        self._input_button = input_button
+        self._device_name = device_name
+        _LOGGER.info(f"Initialized IPX800 Sensor with IP: {self._ip_address}, poll interval: {self._poll_interval}, API URL: {self._api_url}, LED: {self._led}, Button: {self._input_button}, Device: {self._device_name}")
 
     @property
     def name(self):
-        return f"IPX800 Sensor {self._led}"
+        return f"{self._device_name} Sensor {self._led}"
 
     @property
     def state(self):

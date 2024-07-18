@@ -1,7 +1,6 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_IP_ADDRESS, CONF_NAME
-import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL, APP_PORT
 import logging
@@ -13,6 +12,11 @@ def configured_instances(hass):
     return set(entry.title for entry in hass.config_entries.async_entries(DOMAIN))
 
 class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    VERSION = 1
+
+    def __init__(self):
+        self.config_data = {}
+
     async def async_step_user(self, user_input=None):
         _LOGGER.info("Starting IPX800 user step")
         if user_input is not None:
@@ -33,21 +37,48 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info("Starting IPX800 add device step")
         if user_input is not None:
             _LOGGER.info(f"Received add device input: {user_input}")
-            return self.async_create_entry(title=user_input["device_name"], data=user_input)
+            self.config_data.update(user_input)
+            return await self.async_step_select_buttons()
 
         return self.async_show_form(
             step_id="add_device",
             data_schema=vol.Schema({
-                vol.Required("device_name"): str,
-                vol.Required("input_button"): vol.In(["btn0", "btn1", "btn2", "btn3"]),
-                vol.Optional("led0", description={"suggested_value": False}): bool,
-                vol.Optional("led1", description={"suggested_value": False}): bool,
-                vol.Optional("led2", description={"suggested_value": False}): bool,
-                vol.Optional("led3", description={"suggested_value": False}): bool,
-                vol.Optional("led4", description={"suggested_value": False}): bool,
-                vol.Optional("led5", description={"suggested_value": False}): bool,
-                vol.Optional("led6", description={"suggested_value": False}): bool,
-                vol.Optional("led7", description={"suggested_value": False}): bool,
+                vol.Required("device_name", description="Nom du sous-appareil"): str,
+            })
+        )
+
+    async def async_step_select_buttons(self, user_input=None):
+        _LOGGER.info("Starting IPX800 select buttons step")
+        if user_input is not None:
+            _LOGGER.info(f"Received button selection: {user_input}")
+            self.config_data.update(user_input)
+            return await self.async_step_select_leds()
+
+        return self.async_show_form(
+            step_id="select_buttons",
+            data_schema=vol.Schema({
+                vol.Required("input_button", description="Sélectionner un bouton"): vol.In(["btn0", "btn1", "btn2", "btn3"]),
+            })
+        )
+
+    async def async_step_select_leds(self, user_input=None):
+        _LOGGER.info("Starting IPX800 select LEDs step")
+        if user_input is not None:
+            _LOGGER.info(f"Received LED selection: {user_input}")
+            self.config_data.update(user_input)
+            return self.async_create_entry(title=self.config_data["device_name"], data=self.config_data)
+
+        return self.async_show_form(
+            step_id="select_leds",
+            data_schema=vol.Schema({
+                vol.Optional("led0", description="LED 0"): bool,
+                vol.Optional("led1", description="LED 1"): bool,
+                vol.Optional("led2", description="LED 2"): bool,
+                vol.Optional("led3", description="LED 3"): bool,
+                vol.Optional("led4", description="LED 4"): bool,
+                vol.Optional("led5", description="LED 5"): bool,
+                vol.Optional("led6", description="LED 6"): bool,
+                vol.Optional("led7", description="LED 7"): bool,
             })
         )
 
@@ -68,15 +99,15 @@ class IPX800OptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Optional("device_name", default=options.get("device_name", "")): str,
-                vol.Optional("input_button", default=options.get("input_button", "btn0")): vol.In(["btn0", "btn1", "btn2", "btn3"]),
-                vol.Optional("led0", description={"suggested_value": options.get("led0", False)}): bool,
-                vol.Optional("led1", description={"suggested_value": options.get("led1", False)}): bool,
-                vol.Optional("led2", description={"suggested_value": options.get("led2", False)}): bool,
-                vol.Optional("led3", description={"suggested_value": options.get("led3", False)}): bool,
-                vol.Optional("led4", description={"suggested_value": options.get("led4", False)}): bool,
-                vol.Optional("led5", description={"suggested_value": options.get("led5", False)}): bool,
-                vol.Optional("led6", description={"suggested_value": options.get("led6", False)}): bool,
-                vol.Optional("led7", description={"suggested_value": options.get("led7", False)}): bool,
+                vol.Optional("device_name", default=options.get("device_name", ""), description="Nom du sous-appareil"): str,
+                vol.Optional("input_button", default=options.get("input_button", "btn0"), description="Sélectionner un bouton"): vol.In(["btn0", "btn1", "btn2", "btn3"]),
+                vol.Optional("led0", default=options.get("led0", False), description="LED 0"): bool,
+                vol.Optional("led1", default=options.get("led1", False), description="LED 1"): bool,
+                vol.Optional("led2", default=options.get("led2", False), description="LED 2"): bool,
+                vol.Optional("led3", default=options.get("led3", False), description="LED 3"): bool,
+                vol.Optional("led4", default=options.get("led4", False), description="LED 4"): bool,
+                vol.Optional("led5", default=options.get("led5", False), description="LED 5"): bool,
+                vol.Optional("led6", default=options.get("led6", False), description="LED 6"): bool,
+                vol.Optional("led7", default=options.get("led7", False), description="LED 7"): bool,
             })
         )

@@ -8,21 +8,23 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, config_entry, async_add_entities):
     ip_address = config_entry.data[CONF_IP_ADDRESS]
     api_url = config_entry.data[CONF_API_URL]
-    output_leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
+    device_name = config_entry.data.get("device_name")
+    output_leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
 
-    lights = [IPX800Light(ip_address, api_url, led) for led in output_leds]
+    lights = [IPX800Light(ip_address, api_url, led, device_name) for led in output_leds]
     async_add_entities(lights, update_before_add=True)
 
 class IPX800Light(LightEntity):
-    def __init__(self, ip_address, api_url, led):
+    def __init__(self, ip_address, api_url, led, device_name):
         self._ip_address = ip_address
         self._api_url = api_url
         self._led = led
+        self._device_name = device_name
         self._is_on = False
 
     @property
     def name(self):
-        return f"IPX800 Light {self._led}"
+        return f"{self._device_name} Light {self._led}"
 
     @property
     def is_on(self):
