@@ -6,10 +6,13 @@ import requests
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
+    if "device_name" not in config_entry.options:
+        return
+
     ip_address = config_entry.data[CONF_IP_ADDRESS]
     api_url = config_entry.data[CONF_API_URL]
-    device_name = config_entry.data.get("device_name")
-    output_leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
+    device_name = config_entry.options.get("device_name")
+    output_leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
 
     lights = [IPX800Light(ip_address, api_url, led, device_name) for led in output_leds]
     async_add_entities(lights, update_before_add=True)

@@ -7,12 +7,15 @@ import requests
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
+    if "device_name" not in config_entry.options:
+        return
+
     ip_address = config_entry.data[CONF_IP_ADDRESS]
     poll_interval = config_entry.data[CONF_POLL_INTERVAL]
     api_url = config_entry.data[CONF_API_URL]
-    device_name = config_entry.data.get("device_name")
-    input_button = config_entry.data.get("input_button")
-    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
+    device_name = config_entry.options.get("device_name")
+    input_button = config_entry.options.get("input_button")
+    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
 
     sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led, input_button, device_name) for led in leds]
 

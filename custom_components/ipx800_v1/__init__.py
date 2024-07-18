@@ -29,7 +29,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         sw_version="1.0",
     )
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
+    if "device_name" in entry.options:
+        await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
 
     return True
 
