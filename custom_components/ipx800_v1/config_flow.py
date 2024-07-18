@@ -1,15 +1,10 @@
+import logging
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.const import CONF_IP_ADDRESS, CONF_NAME
-import voluptuous as vol
-from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL, APP_PORT
-import logging
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
-@callback
-def configured_instances(hass):
-    return set(entry.title for entry in hass.config_entries.async_entries(DOMAIN))
 
 class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -18,25 +13,22 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.config_data = {}
 
     async def async_step_user(self, user_input=None):
-        _LOGGER.info("Starting IPX800 user step")
         if user_input is not None:
-            _LOGGER.info(f"Received user input: {user_input}")
-            return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
+            self.config_data.update(user_input)
+            return await self.async_step_add_device()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME): str,
-                vol.Required(CONF_IP_ADDRESS): str,
-                vol.Required(CONF_POLL_INTERVAL, default=10): int,
-                vol.Required(CONF_API_URL, default=f"http://localhost:{APP_PORT}"): str,
+                vol.Required("name"): str,
+                vol.Required("ip_address"): str,
+                vol.Required("poll_interval", default=10): int,
+                vol.Required("api_url", default="http://localhost:5213"): str,
             })
         )
 
     async def async_step_add_device(self, user_input=None):
-        _LOGGER.info("Starting IPX800 add device step")
         if user_input is not None:
-            _LOGGER.info(f"Received add device input: {user_input}")
             self.config_data.update(user_input)
             return await self.async_step_select_buttons()
 
@@ -48,9 +40,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_select_buttons(self, user_input=None):
-        _LOGGER.info("Starting IPX800 select buttons step")
         if user_input is not None:
-            _LOGGER.info(f"Received button selection: {user_input}")
             self.config_data.update(user_input)
             return await self.async_step_select_leds()
 
@@ -62,9 +52,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_select_leds(self, user_input=None):
-        _LOGGER.info("Starting IPX800 select LEDs step")
         if user_input is not None:
-            _LOGGER.info(f"Received LED selection: {user_input}")
             self.config_data.update(user_input)
             return self.async_create_entry(title=self.config_data["device_name"], data=self.config_data)
 
