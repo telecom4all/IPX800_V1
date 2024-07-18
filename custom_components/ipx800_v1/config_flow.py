@@ -2,6 +2,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_IP_ADDRESS, CONF_NAME
+import homeassistant.helpers.config_validation as cv
 from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_API_URL
 import logging
 
@@ -39,7 +40,14 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required("device_name"): str,
                 vol.Required("input_button"): vol.In(["btn0", "btn1", "btn2", "btn3"]),
-                vol.Required("output_leds"): vol.All(vol.Coerce(list), [vol.In(["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"])]),
+                vol.Optional("led0", description={"suggested_value": False}): bool,
+                vol.Optional("led1", description={"suggested_value": False}): bool,
+                vol.Optional("led2", description={"suggested_value": False}): bool,
+                vol.Optional("led3", description={"suggested_value": False}): bool,
+                vol.Optional("led4", description={"suggested_value": False}): bool,
+                vol.Optional("led5", description={"suggested_value": False}): bool,
+                vol.Optional("led6", description={"suggested_value": False}): bool,
+                vol.Optional("led7", description={"suggested_value": False}): bool,
             })
         )
 
@@ -61,8 +69,15 @@ class IPX800OptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required("device_name", default=options.get("device_name", "")): str,
-                vol.Required("input_button", default=options.get("input_button", "btn0")): vol.In(["btn0", "btn1", "btn2", "btn3"]),
-                vol.Required("output_leds", default=options.get("output_leds", [])): vol.All(vol.Coerce(list), [vol.In(["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"])]),
+                vol.Optional("device_name", default=options.get("device_name", "")): str,
+                vol.Optional("input_button", default=options.get("input_button", "btn0")): vol.In(["btn0", "btn1", "btn2", "btn3"]),
+                vol.Optional("led0", description={"suggested_value": "LED 0"}): bool,
+                vol.Optional("led1", description={"suggested_value": "LED 1"}): bool,
+                vol.Optional("led2", description={"suggested_value": "LED 2"}): bool,
+                vol.Optional("led3", description={"suggested_value": "LED 3"}): bool,
+                vol.Optional("led4", description={"suggested_value": "LED 4"}): bool,
+                vol.Optional("led5", description={"suggested_value": "LED 5"}): bool,
+                vol.Optional("led6", description={"suggested_value": "LED 6"}): bool,
+                vol.Optional("led7", description={"suggested_value": "LED 7"}): bool,
             })
         )

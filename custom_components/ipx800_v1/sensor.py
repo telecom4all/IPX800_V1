@@ -11,19 +11,24 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     poll_interval = config_entry.data[CONF_POLL_INTERVAL]
     api_url = config_entry.data[CONF_API_URL]
     _LOGGER.info(f"Setting up IPX800 sensor with IP: {ip_address}, poll interval: {poll_interval}, and API URL: {api_url}")
-    async_add_entities([IPX800Sensor(ip_address, poll_interval, api_url)])
+
+    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.data.get(led)]
+    sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led) for led in leds]
+
+    async_add_entities(sensors)
 
 class IPX800Sensor(Entity):
-    def __init__(self, ip_address, poll_interval, api_url):
+    def __init__(self, ip_address, poll_interval, api_url, led):
         self._ip_address = ip_address
         self._poll_interval = poll_interval
         self._api_url = api_url
         self._state = None
-        _LOGGER.info(f"Initialized IPX800 Sensor with IP: {self._ip_address}, poll interval: {self._poll_interval}, and API URL: {self._api_url}")
+        self._led = led
+        _LOGGER.info(f"Initialized IPX800 Sensor with IP: {self._ip_address}, poll interval: {self._poll_interval}, API URL: {self._api_url}, and LED: {self._led}")
 
     @property
     def name(self):
-        return f"IPX800 Sensor {self._ip_address}"
+        return f"IPX800 Sensor {self._led}"
 
     @property
     def state(self):
@@ -35,7 +40,7 @@ class IPX800Sensor(Entity):
         response = await self.hass.async_add_executor_job(requests.get, url)
         if response.status_code == 200:
             _LOGGER.info("Successfully updated IPX800 sensor")
-            self._state = response.json()
+            self._state = response.json().get(self._led)
         else:
             _LOGGER.error(f"Failed to update IPX800 sensor: {response.status_code}")
             self._state = None
@@ -43,7 +48,6 @@ class IPX800Sensor(Entity):
     def handle_physical_switch(self, btn):
         _LOGGER.info(f"Handling physical switch: {btn}")
         if btn in ["btn0", "btn1", "btn2", "btn3"]:
-            # Send a request to the API to toggle corresponding LEDs based on physical switch
             _LOGGER.info(f"Toggling LEDs for button: {btn}")
             pass
 
