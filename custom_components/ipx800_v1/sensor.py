@@ -1,48 +1,62 @@
 import logging
-from homeassistant.helpers.entity import Entity
-from homeassistant.const import CONF_IP_ADDRESS
-from .const import CONF_POLL_INTERVAL, CONF_API_URL
-import requests
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity import DeviceInfo
+from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    if "device_name" not in config_entry.options:
-        return
+    _LOGGER.debug("Setting up IPX800 sensor entities")
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entities = []
 
-    ip_address = config_entry.data[CONF_IP_ADDRESS]
-    poll_interval = config_entry.data[CONF_POLL_INTERVAL]
-    api_url = config_entry.data[CONF_API_URL]
-    device_name = config_entry.options.get("device_name")
-    input_button = config_entry.options.get("input_button")
-    leds = [led for led in ["led0", "led1", "led2", "led3", "led4", "led5", "led6", "led7"] if config_entry.options.get(led)]
+    devices = config_entry.options.get("devices", [])
+    _LOGGER.debug(f"Devices found in config entry: {devices}")
+    for device in devices:
+        device_name = device["device_name"]
+        input_button = device["input_button"]
+        select_leds = device["select_leds"]
+        _LOGGER.debug(f"Adding device: {device_name}, input_button: {input_button}, select_leds: {select_leds}")
 
-    sensors = [IPX800Sensor(ip_address, poll_interval, api_url, led, input_button, device_name) for led in leds]
+        entities.append(IPX800Sensor(coordinator, config_entry, device_name, input_button, select_leds))
 
-    async_add_entities(sensors)
+    _LOGGER.debug(f"Entities to add: {entities}")
+    async_add_entities(entities)
 
-class IPX800Sensor(Entity):
-    def __init__(self, ip_address, poll_interval, api_url, led, input_button, device_name):
-        self._ip_address = ip_address
-        self._poll_interval = poll_interval
-        self._api_url = api_url
-        self._state = None
-        self._led = led
+class IPX800Sensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator, config_entry, device_name, input_button, select_leds):
+        super().__init__(coordinator)
+        self.config_entry = config_entry
+        self._name = device_name
         self._input_button = input_button
-        self._device_name = device_name
+        self._select_leds = select_leds
+        self._is_on = False
+        self._attr_name = f"{device_name} Sensor"
+        self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_sensor"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            name=device_name,
+            manufacturer="GCE Electronics",
+            model="IPX800_V1",
+        )
+        _LOGGER.debug(f"Initialized IPX800Sensor entity: {self._attr_name}")
 
     @property
     def name(self):
-        return f"{self._device_name} Sensor {self._led}"
+        return self._name
 
     @property
     def state(self):
-        return self._state
+        return all(self.coordinator.data["leds"][led] for led in self._select_leds)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "input_button": self._input_button,
+            "select_leds": self._select_leds,
+        }
 
     async def async_update(self):
-        url = f"{self._api_url}/status"
-        response = await self.hass.async_add_executor_job(requests.get, url)
-        if response.status_code == 200:
-            self._state = response.json().get(self._led)
-        else:
-            self._state = None
+        _LOGGER.debug(f"Updating sensor: {self._name}")
+        await self.coordinator.async_request_refresh()

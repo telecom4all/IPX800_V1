@@ -1,12 +1,16 @@
 import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-from .const import DOMAIN
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
+from datetime import timedelta, datetime
+import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict):
+    """Configurer l'intégration via le fichier configuration.yaml (non utilisé ici)"""
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -14,24 +18,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN] = {}
 
     if entry.entry_id in hass.data[DOMAIN]:
-        return False
+        return False  # Entry déjà configurée
 
-    hass.data[DOMAIN][entry.entry_id] = entry.data
+    poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
+    coordinator = IPX800Coordinator(hass, entry, update_interval=poll_interval)
+    await coordinator.async_config_entry_first_refresh()
+    hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Register the device
-    device_registry = dr.async_get(hass)
-    device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, entry.entry_id)},
-        manufacturer="IPX800",
-        name=entry.title,
-        model="V1",
-        sw_version="1.0",
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
 
-    if "device_name" in entry.options:
-        await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
-
+    _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -41,3 +37,39 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return True
+
+class IPX800Coordinator(DataUpdateCoordinator):
+    def __init__(self, hass, config_entry, update_interval):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="IPX800",
+            update_interval=timedelta(seconds=update_interval),
+        )
+        self.config_entry = config_entry
+        self._last_update = None
+        self.api_url = config_entry.data[API_URL]
+        _LOGGER.info(f"Coordinator initialized with update interval: {update_interval} seconds")
+
+    async def _async_update_data(self):
+        now = datetime.now()
+        if self._last_update is not None:
+            elapsed = now - self._last_update
+            _LOGGER.info(f"Data updated. {elapsed.total_seconds() / 60:.2f} minutes elapsed since last update.")
+        self._last_update = now
+
+        _LOGGER.info("Fetching new data from IPX800 Docker")
+
+        # Fetch data from IPX800 Docker
+        data = await self.fetch_data_from_docker()
+
+        _LOGGER.info("New data fetched successfully")
+        return data
+
+    async def fetch_data_from_docker(self):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.api_url}/status") as response:
+                if response.status != 200:
+                    raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
+                data = await response.json()
+                return data

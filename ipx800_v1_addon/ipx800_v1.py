@@ -2,8 +2,10 @@ import time
 import requests
 import os
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Initialisation des variables avec des valeurs par défaut
 IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
@@ -53,7 +55,7 @@ def status():
     status = get_ipx800_status()
     if status:
         # Parse the XML and update the state dictionary
-        # This is juste an example, you need to parse the XML properly
+        # This is just an example, you need to parse the XML properly
         print(status)
         return jsonify(state)
     else:
@@ -67,9 +69,26 @@ def set_led():
     if led and state is not None:
         result = set_ipx800_led(led, state)
         if result == 200:
+            state['leds'][led] = state
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Failed to set LED"}), 500
+    else:
+        return jsonify({"error": "Invalid request"}), 400
+
+@app.route('/toggle_button', methods=['POST'])
+def toggle_button():
+    data = request.json
+    button = data.get('button')
+    if button:
+        new_state = 'up' if state['buttons'][button] == 'dn' else 'dn'
+        state['buttons'][button] = new_state
+
+        # Invert the state of the LEDs associated with this button
+        for led in state['leds']:
+            state['leds'][led] = not state['leds'][led]
+
+        return jsonify({"success": True, "new_state": new_state})
     else:
         return jsonify({"error": "Invalid request"}), 400
 
