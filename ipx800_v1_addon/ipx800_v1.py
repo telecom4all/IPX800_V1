@@ -38,10 +38,10 @@ state = {
 def get_ipx800_status():
     url = f"http://{IPX800_IP}/status.xml"
     try:
-        logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
+        #logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        logging.info("[INFO] Received status from IPX800")
+        #logging.info("[INFO] Received status from IPX800")
         return response.text
     except requests.RequestException as e:
         logging.error(f"[ERROR] Failed to get status from IPX800: {e}")
@@ -61,10 +61,10 @@ def set_ipx800_led(led, state):
 
 @app.route('/status', methods=['GET'])
 def status():
-    logging.info("[INFO] /status endpoint called")
+    #logging.info("[INFO] /status endpoint called")
     status = get_ipx800_status()
     if status:
-        logging.info(f"[INFO] Current state: {state}")
+        #logging.info(f"[INFO] Current state: {state}")
         return jsonify(state)
     else:
         logging.error("[ERROR] Failed to retrieve status from IPX800")
@@ -112,12 +112,12 @@ def toggle_button():
         return jsonify({"error": "Invalid request"}), 400
 
 def main():
-    print(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
+    #logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
     while True:
         status = get_ipx800_status()
         if status:
             # Parse the XML and update the state dictionary
-            logging.info("[INFO] IPX800 status:")
+            #logging.info("[INFO] IPX800 status:")
             logging.info(status)
         time.sleep(POLL_INTERVAL)
 
