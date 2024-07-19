@@ -65,11 +65,11 @@ def status():
 def set_led():
     data = request.json
     led = data.get('led')
-    state = data.get('state')
-    if led and state is not None:
-        result = set_ipx800_led(led, state)
+    state_value = data.get('state')
+    if led and state_value is not None:
+        result = set_ipx800_led(led, state_value)
         if result == 200:
-            state['leds'][led] = state
+            state['leds'][led] = int(state_value)  # Convertir en entier ou booléen selon votre préférence
             return jsonify({"success": True})
         else:
             return jsonify({"error": "Failed to set LED"}), 500
