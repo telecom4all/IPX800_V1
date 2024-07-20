@@ -2,7 +2,7 @@ import logging
 from homeassistant.components.light import LightEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
-from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
+from .const import DOMAIN
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
@@ -13,6 +13,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     entities = []
 
     devices = config_entry.options.get("devices", [])
+    if not devices:
+        _LOGGER.warning("No devices found in config entry options.")
+
     _LOGGER.debug(f"Devices found in config entry: {devices}")
     for device in devices:
         device_name = device["device_name"]
@@ -49,7 +52,10 @@ class IPX800Light(CoordinatorEntity, LightEntity):
 
     @property
     def is_on(self):
-        return all(self.coordinator.data["leds"][led] for led in self._select_leds)
+        if self.coordinator.data:
+            return all(self.coordinator.data["leds"].get(led, False) for led in self._select_leds)
+        _LOGGER.warning("Coordinator data is empty or None")
+        return False
 
     async def async_turn_on(self, **kwargs):
         await self._set_led_state(True)

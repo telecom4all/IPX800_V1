@@ -4,6 +4,7 @@ import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import logging
+import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 CORS(app)
@@ -38,14 +39,26 @@ state = {
 def get_ipx800_status():
     url = f"http://{IPX800_IP}/status.xml"
     try:
-        #logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
+        logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        #logging.info("[INFO] Received status from IPX800")
+        logging.info("[INFO] Received status from IPX800")
         return response.text
     except requests.RequestException as e:
         logging.error(f"[ERROR] Failed to get status from IPX800: {e}")
         return None
+
+def parse_ipx800_status(xml_data):
+    """Parse the XML data received from IPX800 and update the state dictionary."""
+    try:
+        root = ET.fromstring(xml_data)
+        for led in state['leds'].keys():
+            state['leds'][led] = int(root.find(led).text)
+        for button in state['buttons'].keys():
+            state['buttons'][button] = root.find(button).text
+        logging.info(f"[INFO] Updated state from IPX800: {state}")
+    except ET.ParseError as e:
+        logging.error(f"[ERROR] Failed to parse XML: {e}")
 
 def set_ipx800_led(led, state):
     url = f"http://{IPX800_IP}/preset.htm?{led}={state}"
@@ -61,10 +74,11 @@ def set_ipx800_led(led, state):
 
 @app.route('/status', methods=['GET'])
 def status():
-    #logging.info("[INFO] /status endpoint called")
-    status = get_ipx800_status()
-    if status:
-        #logging.info(f"[INFO] Current state: {state}")
+    logging.info("[INFO] /status endpoint called")
+    xml_status = get_ipx800_status()
+    if xml_status:
+        logging.info(f"[INFO] XML status received: {xml_status}")
+        parse_ipx800_status(xml_status)
         return jsonify(state)
     else:
         logging.error("[ERROR] Failed to retrieve status from IPX800")
@@ -112,13 +126,12 @@ def toggle_button():
         return jsonify({"error": "Invalid request"}), 400
 
 def main():
-    #logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
+    logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
     while True:
         status = get_ipx800_status()
         if status:
-            # Parse the XML and update the state dictionary
-            #logging.info("[INFO] IPX800 status:")
-            logging.info(status)
+            parse_ipx800_status(status)
+            logging.info("[INFO] IPX800 status updated")
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":

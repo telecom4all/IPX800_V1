@@ -27,6 +27,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
 
+    # Restore devices from config entry options
+    devices = entry.options.get("devices", [])
+    for device in devices:
+        _LOGGER.debug(f"Restored device: {device}")
+
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
 
@@ -63,7 +68,12 @@ class IPX800Coordinator(DataUpdateCoordinator):
         # Fetch data from IPX800 Docker
         data = await self.fetch_data_from_docker()
 
-        _LOGGER.info("New data fetched successfully")
+        if data:
+            _LOGGER.info("New data fetched successfully")
+            _LOGGER.debug(f"Data received: {data}")
+        else:
+            _LOGGER.error("No data received from IPX800 Docker")
+
         return data
 
     async def fetch_data_from_docker(self):

@@ -2,10 +2,9 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers import config_validation as cv  # Ajout de cette ligne
+from homeassistant.helpers import config_validation as cv
 
 from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
-
 
 _LOGGER = logging.getLogger(__name__)
 
