@@ -25,10 +25,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     # Restore devices from config entry options
     devices = entry.options.get("devices", [])
+    _LOGGER.debug(f"Devices in config entry options: {devices}")
+    if not devices:
+        devices = entry.data.get("devices", [])
+        if devices:
+            hass.config_entries.async_update_entry(entry, options={"devices": devices})
+            _LOGGER.debug(f"Devices restored from config entry data: {devices}")
+        else:
+            _LOGGER.warning("No devices found in config entry data or options.")
+
     for device in devices:
         _LOGGER.debug(f"Restored device: {device}")
 
@@ -38,7 +47,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-        await hass.config_entries.async_forward_entry_unload(entry, "light")
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return True

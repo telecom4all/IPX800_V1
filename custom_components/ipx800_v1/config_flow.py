@@ -79,6 +79,8 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                 "select_leds": select_leds,
             })
 
+            _LOGGER.debug(f"Updated devices list: {devices}")
+
             self.hass.config_entries.async_update_entry(self.config_entry, options={**self.config_entry.options, "devices": devices})
             _LOGGER.debug(f"Device added: {device_name}")
 
