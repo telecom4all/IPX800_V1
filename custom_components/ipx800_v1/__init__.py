@@ -2,10 +2,10 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers import device_registry as dr, entity_registry as er
-from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
 from datetime import timedelta, datetime
 import aiohttp
+
+from .const import DOMAIN, POLL_INTERVAL, API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,21 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
-
-    # Restore devices from config entry options
-    devices = entry.options.get("devices", [])
-    _LOGGER.debug(f"Devices in config entry options: {devices}")
-    if not devices:
-        devices = entry.data.get("devices", [])
-        if devices:
-            hass.config_entries.async_update_entry(entry, options={"devices": devices})
-            _LOGGER.debug(f"Devices restored from config entry data: {devices}")
-        else:
-            _LOGGER.warning("No devices found in config entry data or options.")
-
-    for device in devices:
-        _LOGGER.debug(f"Restored device: {device}")
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
 
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
@@ -47,6 +33,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         await hass.config_entries.async_forward_entry_unload(entry, "sensor")
+        await hass.config_entries.async_forward_entry_unload(entry, "light")
+        
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return True
@@ -73,7 +61,6 @@ class IPX800Coordinator(DataUpdateCoordinator):
 
         _LOGGER.info("Fetching new data from IPX800 Docker")
 
-        # Fetch data from IPX800 Docker
         data = await self.fetch_data_from_docker()
 
         if data:
