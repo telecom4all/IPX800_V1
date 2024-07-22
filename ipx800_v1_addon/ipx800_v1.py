@@ -17,6 +17,13 @@ logger = logging.getLogger(__name__)
 IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
 
+# Utilisation du token du superviseur
+SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
+HEADERS = {
+    "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
+    "Content-Type": "application/json"
+}
+
 state = {
     'leds': {
         'led0': 0,
@@ -72,6 +79,18 @@ def set_ipx800_led(led, state):
         logging.error(f"[ERROR] Failed to set LED {led} to {state}: {e}")
         return None
 
+def notify_home_assistant(data):
+    url = "http://supervisor/core/api/states/sensor.ipx800_v1"
+    try:
+        logging.info(f"[INFO] Sending notification to Home Assistant: {url}")
+        response = requests.post(url, json=data, headers=HEADERS)
+        response.raise_for_status()
+        logging.info("[INFO] Successfully notified Home Assistant")
+        return response.status_code
+    except requests.RequestException as e:
+        logging.error(f"[ERROR] Failed to notify Home Assistant: {e}")
+        return None
+
 @app.route('/status', methods=['GET'])
 def status():
     logging.info("[INFO] /status endpoint called")
@@ -96,6 +115,7 @@ def set_led():
         if result == 200:
             state['leds'][led] = int(state_value)  # Convertir en entier ou booléen selon votre préférence
             logging.info(f"[INFO] Updated state: {state}")
+            notify_home_assistant(state)  # Notifier Home Assistant du changement d'état
             return jsonify({"success": True})
         else:
             logging.error("[ERROR] Failed to set LED on IPX800")
@@ -120,6 +140,8 @@ def toggle_button():
             state['leds'][led] = not state['leds'][led]
         logging.info(f"[INFO] Updated LED states: {state['leds']}")
 
+        notify_home_assistant(state)  # Notifier Home Assistant du changement d'état
+
         return jsonify({"success": True, "new_state": new_state})
     else:
         logging.error("[ERROR] Invalid request data")
@@ -132,6 +154,7 @@ def main():
         if status:
             parse_ipx800_status(status)
             logging.info("[INFO] IPX800 status updated")
+            notify_home_assistant(state)  # Notifier Home Assistant à chaque mise à jour
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":

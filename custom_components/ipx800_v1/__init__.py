@@ -2,6 +2,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.components.http import HomeAssistantView
 from datetime import timedelta, datetime
 import aiohttp
 
@@ -11,6 +12,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Configurer l'intégration via le fichier configuration.yaml (non utilisé ici)"""
+    hass.http.register_view(IPX800View)
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -78,3 +80,15 @@ class IPX800Coordinator(DataUpdateCoordinator):
                     raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
                 data = await response.json()
                 return data
+
+class IPX800View(HomeAssistantView):
+    url = "/api/ipx800_update"
+    name = "api:ipx800_update"
+    requires_auth = False
+
+    async def post(self, request):
+        hass = request.app["hass"]
+        data = await request.json()
+        for entry_id, coordinator in hass.data[DOMAIN].items():
+            coordinator.async_set_updated_data(data)
+        return self.json({"success": True})
