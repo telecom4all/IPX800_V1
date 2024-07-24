@@ -44,6 +44,7 @@ websocket_connections = {}
 
 async def ipx800_websocket(ip):
     uri = f"ws://{ip}/ws"
+    logging.info(f"Trying to connect to WebSocket: {uri}")
     if ip in websocket_connections:
         logging.info(f"WebSocket connection for IP {ip} already exists. Using the existing connection.")
         return websocket_connections[ip]

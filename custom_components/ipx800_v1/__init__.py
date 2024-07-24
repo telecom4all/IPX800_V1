@@ -52,6 +52,7 @@ class IPX800Coordinator(DataUpdateCoordinator):
         self.config_entry = config_entry
         self.api_url = config_entry.data[API_URL]
         self.websocket_url = f"ws://{self.api_url}/ws"
+        _LOGGER.debug(f"WebSocket URL: {self.websocket_url}")
         self.hass.loop.create_task(self._connect_websocket())
 
     async def _async_update_data(self):
