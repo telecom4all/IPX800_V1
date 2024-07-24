@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from threading import Thread
 import asyncio
 import websockets
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -52,6 +53,18 @@ def parse_ipx800_status(xml_data):
         logging.info(f"[INFO] Updated state from IPX800: {state}")
     except ET.ParseError as e:
         logging.error(f"[ERROR] Failed to parse XML: {e}")
+
+def set_ipx800_led(led, state):
+    url = f"http://{IPX800_IP}/preset.htm?{led}={state}"
+    try:
+        logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state}: {url}")
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        logging.info(f"[INFO] Successfully set {led} to {state}")
+        return response.status_code
+    except requests.RequestException as e:
+        logging.error(f"[ERROR] Failed to set LED {led} to {state}: {e}")
+        return None
 
 def notify_home_assistant(data):
     url = "http://supervisor/core/api/states/sensor.ipx800_v1"
