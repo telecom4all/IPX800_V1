@@ -44,9 +44,9 @@ websocket_connections = {}
 
 async def ipx800_websocket(ip):
     uri = f"ws://{ip}/ws"
-    logging.info(f"Trying to connect to WebSocket: {uri}")
+    logger.info(f"Trying to connect to WebSocket: {uri}")
     if ip in websocket_connections:
-        logging.info(f"WebSocket connection for IP {ip} already exists. Using the existing connection.")
+        logger.info(f"WebSocket connection for IP {ip} already exists. Using the existing connection.")
         return websocket_connections[ip]
 
     try:
@@ -55,14 +55,14 @@ async def ipx800_websocket(ip):
             try:
                 while True:
                     message = await websocket.recv()
-                    logging.info(f"Received WebSocket message: {message}")
+                    logger.info(f"Received WebSocket message: {message}")
                     parse_ipx800_status(message)
                     notify_home_assistant(state)
             except websockets.ConnectionClosed:
-                logging.error(f"WebSocket connection to {ip} closed")
+                logger.error(f"WebSocket connection to {ip} closed")
                 del websocket_connections[ip]
     except Exception as e:
-        logging.error(f"Failed to connect to WebSocket at {uri}: {e}")
+        logger.error(f"Failed to connect to WebSocket at {uri}: {e}")
 
 def parse_ipx800_status(message):
     try:
@@ -71,32 +71,32 @@ def parse_ipx800_status(message):
             state['leds'][led] = int(root.find(led).text)
         for button in state['buttons'].keys():
             state['buttons'][button] = root.find(button).text
-        logging.info(f"Updated state from IPX800: {state}")
+        logger.info(f"Updated state from IPX800: {state}")
     except ET.ParseError as e:
-        logging.error(f"Failed to parse WebSocket message: {e}")
+        logger.error(f"Failed to parse WebSocket message: {e}")
 
 def set_ipx800_led(led, state):
     url = f"http://{IPX800_IP}/preset.htm?{led}={state}"
     try:
-        logging.info(f"Sending request to IPX800 to set {led} to {state}: {url}")
+        logger.info(f"Sending request to IPX800 to set {led} to {state}: {url}")
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        logging.info(f"Successfully set {led} to {state}")
+        logger.info(f"Successfully set {led} to {state}")
         return response.status_code
     except requests.RequestException as e:
-        logging.error(f"Failed to set LED {led} to {state}: {e}")
+        logger.error(f"Failed to set LED {led} to {state}: {e}")
         return None
 
 def notify_home_assistant(data):
     url = "http://supervisor/core/api/states/sensor.ipx800_v1"
     try:
-        logging.info(f"Sending notification to Home Assistant: {url}")
+        logger.info(f"Sending notification to Home Assistant: {url}")
         response = requests.post(url, json=data, headers=HEADERS)
         response.raise_for_status()
-        logging.info("Successfully notified Home Assistant")
+        logger.info("Successfully notified Home Assistant")
         return response.status_code
     except requests.RequestException as e:
-        logging.error(f"Failed to notify Home Assistant: {e}")
+        logger.error(f"Failed to notify Home Assistant: {e}")
         return None
 
 @app.route('/status', methods=['GET'])

@@ -52,6 +52,7 @@ class IPX800Coordinator(DataUpdateCoordinator):
         self.config_entry = config_entry
         self.api_url = config_entry.data[API_URL]
         self.websocket_url = f"ws://{self.api_url}/ws"
+        _LOGGER.debug(f"IPX800 Coordinator initialized with API URL: {self.api_url}")
         _LOGGER.debug(f"WebSocket URL: {self.websocket_url}")
         self.hass.loop.create_task(self._connect_websocket())
 
@@ -66,13 +67,13 @@ class IPX800Coordinator(DataUpdateCoordinator):
         try:
             async with websockets.connect(self.websocket_url) as websocket:
                 self.websocket_connections[self.websocket_url] = websocket
-                _LOGGER.info("WebSocket connection established")
+                _LOGGER.info(f"WebSocket connection established to {self.websocket_url}")
                 async for message in websocket:
                     _LOGGER.debug(f"WebSocket message received: {message}")
                     data = await self.hass.async_add_executor_job(parse_ipx800_status, message)
                     self.async_set_updated_data(data)
         except websockets.ConnectionClosed:
-            _LOGGER.error("WebSocket connection closed")
+            _LOGGER.error(f"WebSocket connection to {self.websocket_url} closed")
         except Exception as e:
             _LOGGER.error(f"WebSocket error: {e}")
 
