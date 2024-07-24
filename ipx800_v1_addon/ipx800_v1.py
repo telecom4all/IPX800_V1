@@ -49,17 +49,20 @@ async def ipx800_websocket(ip):
         logging.info(f"WebSocket connection for IP {ip} already exists. Using the existing connection.")
         return websocket_connections[ip]
 
-    async with websockets.connect(uri) as websocket:
-        websocket_connections[ip] = websocket
-        try:
-            while True:
-                message = await websocket.recv()
-                logging.info(f"Received WebSocket message: {message}")
-                parse_ipx800_status(message)
-                notify_home_assistant(state)
-        except websockets.ConnectionClosed:
-            logging.error(f"WebSocket connection to {ip} closed")
-            del websocket_connections[ip]
+    try:
+        async with websockets.connect(uri) as websocket:
+            websocket_connections[ip] = websocket
+            try:
+                while True:
+                    message = await websocket.recv()
+                    logging.info(f"Received WebSocket message: {message}")
+                    parse_ipx800_status(message)
+                    notify_home_assistant(state)
+            except websockets.ConnectionClosed:
+                logging.error(f"WebSocket connection to {ip} closed")
+                del websocket_connections[ip]
+    except Exception as e:
+        logging.error(f"Failed to connect to WebSocket at {uri}: {e}")
 
 def parse_ipx800_status(message):
     try:
