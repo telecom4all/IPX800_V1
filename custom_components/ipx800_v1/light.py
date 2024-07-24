@@ -61,6 +61,7 @@ class IPX800Light(IPX800Base, LightEntity):
         self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_light"
 
     async def async_added_to_hass(self):
+        """Handle entity which will be added."""
         await super().async_added_to_hass()
         state = self.hass.states.get(self.entity_id)
         if state:
@@ -106,3 +107,5 @@ class IPX800Light(IPX800Base, LightEntity):
         attributes = super().extra_state_attributes
         attributes["input_button"] = self._input_button
         return attributes
+
+
