@@ -3,15 +3,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.components.http import HomeAssistantView
-from datetime import timedelta, datetime
 import aiohttp
+import asyncio
+import websockets
 
-from .const import DOMAIN, POLL_INTERVAL, API_URL
+from .const import DOMAIN, API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Configurer l'intégration via le fichier configuration.yaml (non utilisé ici)"""
     hass.http.register_view(IPX800View)
     return True
 
@@ -22,8 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         return False  # Entry déjà configurée
 
-    poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
-    coordinator = IPX800Coordinator(hass, entry, update_interval=poll_interval)
+    coordinator = IPX800Coordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -42,44 +41,39 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 class IPX800Coordinator(DataUpdateCoordinator):
-    def __init__(self, hass, config_entry, update_interval):
+    websocket_connections = {}
+
+    def __init__(self, hass, config_entry):
         super().__init__(
             hass,
             _LOGGER,
             name="IPX800",
-            update_interval=timedelta(seconds=update_interval),
         )
         self.config_entry = config_entry
-        self._last_update = None
         self.api_url = config_entry.data[API_URL]
-        _LOGGER.info(f"Coordinator initialized with update interval: {update_interval} seconds")
+        self.websocket_url = f"ws://{self.api_url}/ws"
+        self.hass.loop.create_task(self._connect_websocket())
 
     async def _async_update_data(self):
-        now = datetime.now()
-        if self._last_update is not None:
-            elapsed = now - self._last_update
-            _LOGGER.info(f"Data updated. {elapsed.total_seconds() / 60:.2f} minutes elapsed since last update.")
-        self._last_update = now
+        return {}  # WebSocket handles updates
 
-        _LOGGER.info("Fetching new data from IPX800 Docker")
+    async def _connect_websocket(self):
+        if self.websocket_url in self.websocket_connections:
+            _LOGGER.info(f"WebSocket connection for URL {self.websocket_url} already exists. Using the existing connection.")
+            return self.websocket_connections[self.websocket_url]
 
-        data = await self.fetch_data_from_docker()
-
-        if data:
-            _LOGGER.info("New data fetched successfully")
-            _LOGGER.debug(f"Data received: {data}")
-        else:
-            _LOGGER.error("No data received from IPX800 Docker")
-
-        return data
-
-    async def fetch_data_from_docker(self):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_url}/status") as response:
-                if response.status != 200:
-                    raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
-                data = await response.json()
-                return data
+        try:
+            async with websockets.connect(self.websocket_url) as websocket:
+                self.websocket_connections[self.websocket_url] = websocket
+                _LOGGER.info("WebSocket connection established")
+                async for message in websocket:
+                    _LOGGER.debug(f"WebSocket message received: {message}")
+                    data = await self.hass.async_add_executor_job(parse_ipx800_status, message)
+                    self.async_set_updated_data(data)
+        except websockets.ConnectionClosed:
+            _LOGGER.error("WebSocket connection closed")
+        except Exception as e:
+            _LOGGER.error(f"WebSocket error: {e}")
 
 class IPX800View(HomeAssistantView):
     url = "/api/ipx800_update"
