@@ -92,15 +92,18 @@ def main():
 async def notify_clients(state):
     if clients:
         message = json.dumps(state)
+        logging.info(f"[INFO] Notifying {len(clients)} clients: {message}")
         await asyncio.wait([client.send(message) for client in clients])
 
 async def websocket_handler(websocket, path):
     clients.add(websocket)
+    logging.info(f"[INFO] Client connected: {websocket.remote_address}")
     try:
         async for message in websocket:
             pass
     finally:
         clients.remove(websocket)
+        logging.info(f"[INFO] Client disconnected: {websocket.remote_address}")
 
 @app.route('/status', methods=['GET'])
 def status():

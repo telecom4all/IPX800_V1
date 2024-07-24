@@ -7,6 +7,7 @@ from datetime import timedelta, datetime
 import aiohttp
 import asyncio
 import websockets
+import json
 
 from .const import DOMAIN, POLL_INTERVAL, API_URL
 
@@ -86,9 +87,11 @@ class IPX800Coordinator(DataUpdateCoordinator):
 
     async def _listen_to_websocket(self):
         async with websockets.connect('ws://localhost:6789') as websocket:
+            _LOGGER.info("WebSocket connection established")
             while True:
                 message = await websocket.recv()
                 data = json.loads(message)
+                _LOGGER.info(f"WebSocket message received: {data}")
                 self.async_set_updated_data(data)
 
 class IPX800View(HomeAssistantView):
