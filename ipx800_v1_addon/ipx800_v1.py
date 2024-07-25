@@ -67,6 +67,20 @@ def set_ipx800_led(led, state):
         logging.error(f"[ERROR] Failed to set LED {led} to {state}: {e}")
         return None
 
+def toggle_led_by_button(button):
+    leds_to_toggle = {
+        'btn0': ['led0', 'led1'],  # Example: button 0 toggles LED 0 and LED 1
+        'btn1': ['led2', 'led3'],  # Example: button 1 toggles LED 2 and LED 3
+        'btn2': ['led4', 'led5'],  # Example: button 2 toggles LED 4 and LED 5
+        'btn3': ['led6', 'led7'],  # Example: button 3 toggles LED 6 and LED 7
+    }
+    if button in leds_to_toggle:
+        for led in leds_to_toggle[button]:
+            current_state = state['leds'][led]
+            new_state = 1 if current_state == 0 else 0
+            set_ipx800_led(led, new_state)
+            state['leds'][led] = new_state
+
 def notify_home_assistant(data):
     url = "http://supervisor/core/api/states/sensor.ipx800_v1"
     try:
@@ -81,6 +95,7 @@ def notify_home_assistant(data):
 
 def main():
     logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
+    previous_button_states = state['buttons'].copy()
     while True:
         status = get_ipx800_status()
         if status:
@@ -88,6 +103,13 @@ def main():
             logging.info("[INFO] IPX800 status updated")
             notify_home_assistant(state)
             asyncio.run(notify_clients(state))
+            
+            # Check for button state changes
+            for button, current_state in state['buttons'].items():
+                if current_state != previous_button_states[button]:
+                    toggle_led_by_button(button)
+                    previous_button_states[button] = current_state
+
         time.sleep(POLL_INTERVAL)
 
 async def notify_clients(state):
@@ -155,9 +177,7 @@ def toggle_button():
         new_state = 'up' if state['buttons'][button] == 'dn' else 'dn'
         state['buttons'][button] = new_state
         logging.info(f"[INFO] Button {button} new state: {new_state}")
-        for led in state['leds']:
-            state['leds'][led] = not state['leds'][led]
-        logging.info(f"[INFO] Updated LED states: {state['leds']}")
+        toggle_led_by_button(button)
         notify_home_assistant(state)
         asyncio.run(notify_clients(state))
         return jsonify({"success": True, "new_state": new_state})

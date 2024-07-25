@@ -64,6 +64,7 @@ class IPX800Light(IPX800Base, LightEntity):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
         state = self.hass.states.get(self.entity_id)
+        _LOGGER.error(f"self._select_leds :  {self._select_leds}")
         if state:
             self._is_on = state.state == "on"
             self._input_button = state.attributes.get("input_button", self._input_button)
@@ -91,8 +92,13 @@ class IPX800Light(IPX800Base, LightEntity):
         url = f"{self.config_entry.data['api_url']}/set_led"
         async with aiohttp.ClientSession() as session:
             for led in self._select_leds:
-                led_index = int(led.replace("led", "")) + 1
-                payload = {'led': f'led{led_index}', 'state': '1' if state else '0'}
+                
+
+                led_index = int(led.replace("led", "")) - 1
+
+                _LOGGER.debug(f"set led state :  {led}: led_index = {led_index}")
+
+                payload = {'led': led, 'state': '1' if state else '0'}
                 async with session.post(url, json=payload) as response:
                     if response.status == 200:
                         _LOGGER.debug(f"Set {led} to {state}")
