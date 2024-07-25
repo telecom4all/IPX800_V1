@@ -24,12 +24,41 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+CONFIG_FILE = "/config/leds_to_toggle.json"
+
 state = {
     'leds': {f'led{i}': 0 for i in range(8)},
     'buttons': {f'btn{i}': 'up' for i in range(4)}
 }
 
 clients = set()
+leds_to_toggle = {}
+
+def load_config():
+    global leds_to_toggle
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            leds_to_toggle = json.load(f)
+            logging.info(f"[INFO] Configuration loaded from {CONFIG_FILE}")
+
+def save_config():
+    global leds_to_toggle
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(leds_to_toggle, f)
+        logging.info(f"[INFO] Configuration saved to {CONFIG_FILE}")
+
+@app.route('/configure_leds', methods=['POST'])
+def configure_leds():
+    global leds_to_toggle
+    data = request.json
+    button = data.get('button')
+    leds = data.get('leds')
+    if button and leds:
+        leds_to_toggle[button] = leds
+        save_config()
+        return jsonify({"success": True})
+    else:
+        return jsonify({"error": "Invalid request"}), 400
 
 def get_ipx800_status():
     url = f"http://{IPX800_IP}/status.xml"
@@ -68,12 +97,6 @@ def set_ipx800_led(led, state):
         return None
 
 def toggle_led_by_button(button):
-    leds_to_toggle = {
-        'btn0': ['led0', 'led1'],  # Example: button 0 toggles LED 0 and LED 1
-        'btn1': ['led2', 'led3'],  # Example: button 1 toggles LED 2 and LED 3
-        'btn2': ['led4', 'led5'],  # Example: button 2 toggles LED 4 and LED 5
-        'btn3': ['led6', 'led7'],  # Example: button 3 toggles LED 6 and LED 7
-    }
     if button in leds_to_toggle:
         for led in leds_to_toggle[button]:
             current_state = state['leds'][led]
@@ -95,6 +118,7 @@ def notify_home_assistant(data):
 
 def main():
     logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
+    load_config()  # Load configuration from file
     previous_button_states = state['buttons'].copy()
     while True:
         status = get_ipx800_status()

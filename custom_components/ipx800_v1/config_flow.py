@@ -3,7 +3,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
-
+import aiohttp
 from .const import IP_ADDRESS, DOMAIN, POLL_INTERVAL, API_URL, APP_PORT
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,6 +21,9 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "input_button": user_input["input_button"],
                 "select_leds": user_input["select_leds"]
             }]
+            # Send configuration to Docker
+            await self.send_configuration_to_docker(user_input)
+            
             return self.async_create_entry(title=user_input["device_name"], data={
                 "device_name": user_input["device_name"],
                 "ip_address": user_input["ip_address"],
@@ -49,6 +52,19 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }),
             })
         )
+
+    async def send_configuration_to_docker(self, user_input):
+        api_url = user_input.get("api_url", "http://localhost:5213")
+        config_data = {
+            "button": user_input["input_button"],
+            "leds": user_input["select_leds"]
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{api_url}/configure_leds", json=config_data) as response:
+                if response.status == 200:
+                    _LOGGER.debug("Configuration sent to Docker successfully")
+                else:
+                    _LOGGER.error(f"Failed to send configuration to Docker: {response.status}")
 
     @staticmethod
     @callback

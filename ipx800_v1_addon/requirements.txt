@@ -6,3 +6,4 @@ gunicorn
 flask-cors
 requests_cache
 websockets
+aiohttp
