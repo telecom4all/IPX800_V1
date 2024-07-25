@@ -17,7 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name
 logger = logging.getLogger(__name__)
 
 IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
+#POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
+POLL_INTERVAL = 1
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
 HEADERS = {
     "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
@@ -55,9 +56,9 @@ def parse_ipx800_status(xml_data):
         logging.error(f"[ERROR] Failed to parse XML: {e}")
 
 def set_ipx800_led(led, state):
-    # Adjust LED number for setting state (led0 corresponds to led1, led1 to led2, etc.)
     led_number = int(led[3:]) + 1
-    url = f"http://{IPX800_IP}/preset.htm?led{led_number}={state}"
+    url = f"http://{IPX800_IP}/preset.htm?{led_number}={state}"
+    logging.info(f"url: {url}")
     try:
         logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state}: {url}")
         response = requests.get(url, timeout=5)
