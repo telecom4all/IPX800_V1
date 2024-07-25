@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name
 logger = logging.getLogger(__name__)
 
 IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
-#POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
-POLL_INTERVAL = 1
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
+#POLL_INTERVAL = 1
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
 HEADERS = {
     "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
