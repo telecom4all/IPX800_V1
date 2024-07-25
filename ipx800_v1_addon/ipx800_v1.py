@@ -55,7 +55,9 @@ def parse_ipx800_status(xml_data):
         logging.error(f"[ERROR] Failed to parse XML: {e}")
 
 def set_ipx800_led(led, state):
-    url = f"http://{IPX800_IP}/preset.htm?{led}={state}"
+    # Adjust LED number for setting state (led0 corresponds to led1, led1 to led2, etc.)
+    led_number = int(led[3:]) + 1
+    url = f"http://{IPX800_IP}/preset.htm?led{led_number}={state}"
     try:
         logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state}: {url}")
         response = requests.get(url, timeout=5)
