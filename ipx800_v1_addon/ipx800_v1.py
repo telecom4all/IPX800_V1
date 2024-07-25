@@ -105,6 +105,11 @@ async def websocket_handler(websocket, path):
         clients.remove(websocket)
         logging.info(f"[INFO] Client disconnected: {websocket.remote_address}")
 
+async def start_websocket_server():
+    async with websockets.serve(websocket_handler, "0.0.0.0", 6789):
+        logging.info("[INFO] WebSocket server started on port 6789")
+        await asyncio.Future()  # Run forever
+
 @app.route('/status', methods=['GET'])
 def status():
     logging.info("[INFO] /status endpoint called")
@@ -160,6 +165,6 @@ def toggle_button():
         return jsonify({"error": "Invalid request"}), 400
 
 if __name__ == "__main__":
-    websocket_thread = Thread(target=lambda: asyncio.run(websockets.serve(websocket_handler, "0.0.0.0", 6789)))
+    websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
     websocket_thread.start()
     main()

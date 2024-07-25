@@ -86,6 +86,7 @@ class IPX800Coordinator(DataUpdateCoordinator):
                 return data
 
     async def _listen_to_websocket(self):
+        await asyncio.sleep(1)  # Attendre que le serveur WebSocket soit prêt
         async with websockets.connect('ws://localhost:6789') as websocket:
             _LOGGER.info("WebSocket connection established")
             while True:
