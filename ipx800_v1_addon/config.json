@@ -1,18 +1,16 @@
 {
     "name": "IPX800_V1 Addon",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "slug": "ipx800_v1",
     "description": "An addon to interact with IPX800 devices",
     "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
     "startup": "services",
     "boot": "auto",
     "options": {
-      "ipx800_ip": "192.168.1.121",
-      "poll_interval": 2
+      "portapp": 5213
     },
     "schema": {
-      "ipx800_ip": "str",
-      "poll_interval": "int"
+      "portapp": "int"
     },
     "host_network": true,
     "url": "https://github.com/telecom4all/IPX800_V1",
