@@ -46,7 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         conn.commit()
         conn.close()
 
-    portapp = hass.data["ipx800_v1"].get("portapp", 5213)  # Fetching the portapp from addon configuration
+    # Utilisation directe du port 5213
+    portapp = 5213
     api_url = f"http://localhost:{portapp}"
     poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
     coordinator = IPX800Coordinator(hass, entry, api_url, update_interval=poll_interval)
@@ -101,9 +102,11 @@ class IPX800Coordinator(DataUpdateCoordinator):
         return data
 
     async def fetch_data_from_docker(self):
+        _LOGGER.debug(f"Fetching data from Docker at {self.api_url}/status")
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.api_url}/status") as response:
                 if response.status != 200:
+                    _LOGGER.error(f"Failed to fetch data from Docker API: {response.status}")
                     raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
                 data = await response.json()
                 return data

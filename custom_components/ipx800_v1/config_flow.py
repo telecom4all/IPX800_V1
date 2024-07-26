@@ -30,6 +30,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Utilisation directe du port 5213 pour l'application
             portapp = 5213
 
+            _LOGGER.debug(f"Creating database for IPX800 at /config/ipx800_{ip_address}.db")
             # Création de la base de données SQLite pour stocker les informations de l'appareil
             db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
@@ -50,6 +51,8 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ''', (device_name, ip_address, poll_interval, unique_id))
             conn.commit()  # Validation des changements
             conn.close()  # Fermeture de la connexion à la base de données
+
+            _LOGGER.debug(f"Database created and data inserted for IPX800 at /config/ipx800_{ip_address}.db")
 
             # Création d'une entrée de configuration pour l'appareil principal
             return self.async_create_entry(
@@ -92,6 +95,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_add_device(self, user_input=None):
         """Étape où l'utilisateur ajoute un appareil secondaire."""
         if user_input is not None:
+            _LOGGER.debug(f"Adding device to IPX800 at /config/ipx800_{self.config_entry.data['ip_address']}.db")
             # Connexion à la base de données SQLite de l'appareil principal
             conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
             cursor = conn.cursor()
@@ -118,9 +122,11 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             cursor.execute('''
                 INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], f'etat_{user_input["device_name"].lower().replace(" ", "_")}'))
+            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], f'etat_{user_input["device_name"].lower().replace(" ", "_")}))
             conn.commit()  # Validation des changements
             conn.close()  # Fermeture de la connexion à la base de données
+
+            _LOGGER.debug(f"Device added to database and Home Assistant entry updated for IPX800 at /config/ipx800_{self.config_entry.data['ip_address']}.db")
 
             # Mise à jour de l'entrée de configuration avec la nouvelle liste des appareils secondaires
             self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
