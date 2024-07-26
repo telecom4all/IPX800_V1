@@ -29,7 +29,7 @@ HEADERS = {
 }
 
 # État initial
-states = {ip: {'leds': {f'led{i}': 0 for i in range(8)}, 'buttons': {f'btn{i}': 'up' for i in range(4)}} for ip in IPX800_IPS}
+states = {}
 
 # Ensemble des clients WebSocket
 clients = set()
@@ -189,8 +189,16 @@ def toggle_button():
 def start_servers():
     websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
     websocket_thread.start()
-    for ip in IPX800_IPS:
-        Thread(target=poll_ipx800, args=(ip,)).start()
 
 if __name__ == "__main__":
     start_servers()
+
+    # Démarrer le poller principal pour chaque IPX800 configuré après un délai initial
+    while not IPX800_IPS or not any(IPX800_IPS):
+        logging.info("[INFO] Waiting for IPX800 devices to be configured...")
+        time.sleep(10)
+
+    for ip in IPX800_IPS:
+        if ip:
+            states[ip] = {'leds': {f'led{i}': 0 for i in range(8)}, 'buttons': {f'btn{i}': 'up' for i in range(4)}}
+            Thread(target=poll_ipx800, args=(ip,)).start()
