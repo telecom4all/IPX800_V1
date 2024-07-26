@@ -5,6 +5,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 import sqlite3
 import os
+import uuid
 
 from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL
 
@@ -15,30 +16,17 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
-    def __init__(self):
-        self.device_name = None
-        self.ip_address = None
-        self.poll_interval = None
-
     async def async_step_user(self, user_input=None):
         if user_input is not None:
-            self.device_name = user_input["device_name"]
-            self.ip_address = user_input["ip_address"]
-            self.poll_interval = user_input["poll_interval"]
-            return await self.async_step_device()
+            device_name = user_input["device_name"]
+            ip_address = user_input["ip_address"]
+            poll_interval = user_input["poll_interval"]
+            unique_id = str(uuid.uuid4())
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required("device_name"): str,
-                vol.Required("ip_address"): str,
-                vol.Required("poll_interval", default=10): int,
-            })
-        )
+            # Utilisation directe du port 5213
+            portapp = 5213
 
-    async def async_step_device(self, user_input=None):
-        if user_input is not None:
-            db_path = f"/config/ipx800_{self.ip_address}.db"
+            db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             cursor.execute('''
@@ -50,6 +38,58 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             ''')
             cursor.execute('''
+                INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
+                VALUES (?, ?, ?, ?)
+            ''', (device_name, ip_address, poll_interval, unique_id))
+            conn.commit()
+            conn.close()
+
+            return self.async_create_entry(
+                title=device_name,
+                data={
+                    "device_name": device_name,
+                    "ip_address": ip_address,
+                    "poll_interval": poll_interval,
+                    "portapp": portapp,
+                    "unique_id": unique_id,
+                    "devices": []
+                }
+            )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({
+                vol.Required("device_name"): str,
+                vol.Required("ip_address"): str,
+                vol.Required("poll_interval", default=10): int,
+            })
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return IPX800OptionsFlowHandler(config_entry)
+
+class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        return await self.async_step_add_device()
+
+    async def async_step_add_device(self, user_input=None):
+        if user_input is not None:
+            conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
+            cursor = conn.cursor()
+
+            devices = self.config_entry.data.get("devices", [])
+            devices.append({
+                "device_name": user_input["device_name"],
+                "input_button": user_input["input_button"],
+                "select_leds": user_input["select_leds"]
+            })
+
+            cursor.execute('''
                 CREATE TABLE IF NOT EXISTS devices (
                     device_name TEXT,
                     input_button TEXT,
@@ -59,41 +99,18 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             ''')
             cursor.execute('''
-                INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
-                VALUES (?, ?, ?, ?)
-            ''', (self.device_name, self.ip_address, self.poll_interval, self.unique_id))
-            conn.commit()
-
-            devices = [{
-                "device_name": user_input["device_name"],
-                "input_button": user_input["input_button"],
-                "select_leds": user_input["select_leds"]
-            }]
-
-            cursor.execute('''
                 INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.unique_id, f'etat_{user_input["device_name"].lower().replace(" ", "_")}'))
+            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], f'etat_{user_input["device_name"].lower().replace(" ", "_")}'))
             conn.commit()
             conn.close()
 
-            portapp = self.hass.data["ipx800_v1"].get("portapp", 5213)  # Fetching the portapp from addon configuration
-            api_url = f"http://localhost:{portapp}"
+            self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
 
-            return self.async_create_entry(
-                title=self.device_name,
-                data={
-                    "device_name": self.device_name,
-                    "ip_address": self.ip_address,
-                    "poll_interval": self.poll_interval,
-                    "api_url": api_url,
-                    "unique_id": self.unique_id,
-                    "devices": devices
-                }
-            )
+            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
-            step_id="device",
+            step_id="add_device",
             data_schema=vol.Schema({
                 vol.Required("device_name"): str,
                 vol.Required("input_button"): vol.In(["btn0", "btn1", "btn2", "btn3"]),
@@ -109,15 +126,3 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }),
             })
         )
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        return IPX800OptionsFlowHandler(config_entry)
-
-class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input=None):
-        return self.async_show_form(step_id="init", data_schema=vol.Schema({}), errors={})

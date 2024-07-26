@@ -5,18 +5,21 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import logging
 import xml.etree.ElementTree as ET
-from threading import Thread
+from threading import Thread  # Ajouter l'importation de threading
 import asyncio
 import websockets
 import json
 import sqlite3
 
+# Initialisation de l'application Flask
 app = Flask(__name__)
 CORS(app)
 
+# Configuration de la journalisation
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
 logger = logging.getLogger(__name__)
 
+# Lecture des variables d'environnement
 IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
@@ -25,13 +28,16 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+# État initial
 state = {
     'leds': {f'led{i}': 0 for i in range(8)},
     'buttons': {f'btn{i}': 'up' for i in range(4)}
 }
 
+# Ensemble des clients WebSocket
 clients = set()
 
+# Fonction pour obtenir le statut de l'IPX800
 def get_ipx800_status():
     url = f"http://{IPX800_IP}/status.xml"
     try:
@@ -44,6 +50,7 @@ def get_ipx800_status():
         logging.error(f"[ERROR] Failed to get status from IPX800: {e}")
         return None
 
+# Fonction pour parser le statut de l'IPX800
 def parse_ipx800_status(xml_data):
     try:
         root = ET.fromstring(xml_data)
@@ -55,6 +62,7 @@ def parse_ipx800_status(xml_data):
     except ET.ParseError as e:
         logging.error(f"[ERROR] Failed to parse XML: {e}")
 
+# Fonction pour régler l'état d'une LED sur l'IPX800
 def set_ipx800_led(led, state):
     led_index = int(led.replace("led", "")) + 1
     url = f"http://{IPX800_IP}/preset.htm?led{led_index}={state}"
@@ -68,6 +76,7 @@ def set_ipx800_led(led, state):
         logging.error(f"[ERROR] Failed to set LED {led} to {state}: {e}")
         return None
 
+# Fonction pour notifier Home Assistant
 def notify_home_assistant(data):
     url = "http://supervisor/core/api/states/sensor.ipx800_v1"
     try:
@@ -80,6 +89,7 @@ def notify_home_assistant(data):
         logging.error(f"[ERROR] Failed to notify Home Assistant: {e}")
         return None
 
+# Fonction principale pour interroger l'IPX800 et mettre à jour l'état
 def main():
     logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
     while True:
@@ -91,12 +101,14 @@ def main():
             asyncio.run(notify_clients(state))
         time.sleep(POLL_INTERVAL)
 
+# Fonction asynchrone pour notifier les clients WebSocket
 async def notify_clients(state):
     if clients:
         message = json.dumps(state)
         logging.info(f"[INFO] Notifying {len(clients)} clients: {message}")
         await asyncio.wait([client.send(message) for client in clients])
 
+# Gestionnaire WebSocket pour ajouter et retirer des clients
 async def websocket_handler(websocket, path):
     clients.add(websocket)
     logging.info(f"[INFO] Client connected: {websocket.remote_address}")
@@ -107,11 +119,13 @@ async def websocket_handler(websocket, path):
         clients.remove(websocket)
         logging.info(f"[INFO] Client disconnected: {websocket.remote_address}")
 
+# Fonction pour démarrer le serveur WebSocket
 async def start_websocket_server():
     async with websockets.serve(websocket_handler, "0.0.0.0", 6789):
         logging.info("[INFO] WebSocket server started on port 6789")
         await asyncio.Future()  # Run forever
 
+# Définir les routes Flask
 @app.route('/status', methods=['GET'])
 def status():
     logging.info("[INFO] /status endpoint called")
@@ -166,7 +180,9 @@ def toggle_button():
         logging.error("[ERROR] Invalid request data")
         return jsonify({"error": "Invalid request"}), 400
 
-if __name__ == "__main__":
-    websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
-    websocket_thread.start()
-    main()
+# Démarrer le serveur WebSocket dans un thread séparé
+websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
+websocket_thread.start()
+
+# Démarrer le poller principal
+main()
