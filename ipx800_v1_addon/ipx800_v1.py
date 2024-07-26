@@ -20,7 +20,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name
 logger = logging.getLogger(__name__)
 
 # Lecture des variables d'environnement
-IPX800_IPS = os.getenv("IPX800_IPS", "").split(",")  # Lecture de plusieurs IPs depuis les variables d'environnement
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
 HEADERS = {
@@ -194,9 +193,12 @@ if __name__ == "__main__":
     start_servers()
 
     # Démarrer le poller principal pour chaque IPX800 configuré après un délai initial
-    while not IPX800_IPS or not any(IPX800_IPS):
+    while not os.path.exists("/config/ipx800_devices.json"):
         logging.info("[INFO] Waiting for IPX800 devices to be configured...")
         time.sleep(10)
+
+    with open("/config/ipx800_devices.json", "r") as f:
+        IPX800_IPS = json.load(f).get("devices", [])
 
     for ip in IPX800_IPS:
         if ip:
