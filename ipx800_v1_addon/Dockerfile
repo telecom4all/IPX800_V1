@@ -14,8 +14,11 @@ COPY custom_components/ipx800_v1 /app/custom_components/ipx800_v1
 # Copier le requirements.txt
 COPY ipx800_v1_addon/requirements.txt /app/requirements.txt
 
+COPY ipx800_v1_addon/websocket_server.py /app/websocket_server.py
+
 # Modifier les permissions des fichiers
-RUN chmod -R 755 /app/ipx800_v1.py /app/websocket_server.py /app/run.sh /app/custom_components/ipx800_v1
+RUN chmod -R 755 /app/ipx800_v1.py /app/run.sh /app/custom_components/ipx800_v1
+RUN chmod -R 755 /app/websocket_server.py
 
 # Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
