@@ -4,8 +4,8 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 import sqlite3
+import os
 import uuid
-
 from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL, WEBSOCKET_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             portapp = 5213
             api_url = f"http://{ip_address}:{portapp}"
             websocket_url = f"ws://{ip_address}:6789"
-
-            _LOGGER.debug(f"Creating database for IPX800 at /config/ipx800_{ip_address}.db")
+            
+            # Création de la base de données SQLite
             db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -66,7 +66,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "devices": []
                 }
             )
-
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
@@ -90,28 +89,28 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_add_device(self, user_input=None):
         if user_input is not None:
-            _LOGGER.debug(f"Adding device to IPX800 at /config/ipx800_{self.config_entry.data['ip_address']}.db")
             conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
             cursor = conn.cursor()
-
             devices = self.config_entry.data.get("devices", [])
             devices.append({
                 "device_name": user_input["device_name"],
                 "input_button": user_input["input_button"],
                 "select_leds": user_input["select_leds"]
             })
-
             cursor.execute('''
                 INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], f'etat_{user_input["device_name"].lower().replace(" ", "_")}'))
+            ''', (
+                user_input["device_name"],
+                user_input["input_button"],
+                ",".join(user_input["select_leds"]),
+                self.config_entry.data["unique_id"],
+                f'etat_{user_input["device_name"].lower().replace(" ", "_")}'
+            ))
             conn.commit()
             conn.close()
-
             self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
-
             return self.async_create_entry(title="", data={})
-
         return self.async_show_form(
             step_id="add_device",
             data_schema=vol.Schema({

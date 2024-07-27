@@ -8,7 +8,6 @@ import aiohttp
 import asyncio
 import websockets
 import json
-
 from .const import DOMAIN, POLL_INTERVAL, API_URL, WEBSOCKET_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,20 +19,15 @@ async def async_setup(hass: HomeAssistant, config: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
-
     if entry.entry_id in hass.data[DOMAIN]:
         return False
-
     poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
     api_url = entry.data.get("api_url", API_URL)
     websocket_url = entry.data.get("websocket_url", WEBSOCKET_URL)
-    
     coordinator = IPX800Coordinator(hass, entry, update_interval=poll_interval, api_url=api_url, websocket_url=websocket_url)
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
-
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
-
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
 
@@ -41,9 +35,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         await hass.config_entries.async_forward_entry_unload(entry, "sensor")
         await hass.config_entries.async_forward_entry_unload(entry, "light")
-        
         hass.data[DOMAIN].pop(entry.entry_id)
-
     return True
 
 class IPX800Coordinator(DataUpdateCoordinator):
@@ -67,17 +59,13 @@ class IPX800Coordinator(DataUpdateCoordinator):
             elapsed = now - self._last_update
             _LOGGER.info(f"Data updated. {elapsed.total_seconds() / 60:.2f} minutes elapsed since last update.")
         self._last_update = now
-
         _LOGGER.info("Fetching new data from IPX800 Docker")
-
         data = await self.fetch_data_from_docker()
-
         if data:
             _LOGGER.info("New data fetched successfully")
             _LOGGER.debug(f"Data received: {data}")
         else:
             _LOGGER.error("No data received from IPX800 Docker")
-
         return data
 
     async def fetch_data_from_docker(self):
