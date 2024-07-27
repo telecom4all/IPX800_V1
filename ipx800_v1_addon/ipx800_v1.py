@@ -9,7 +9,6 @@ from threading import Thread
 import asyncio
 import websockets
 import json
-import sqlite3
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +16,8 @@ CORS(app)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
 logger = logging.getLogger(__name__)
 
+IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
 HEADERS = {
     "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
@@ -30,8 +31,8 @@ state = {
 
 clients = set()
 
-def get_ipx800_status(ip_address):
-    url = f"http://{ip_address}/status.xml"
+def get_ipx800_status():
+    url = f"http://{IPX800_IP}/status.xml"
     try:
         logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
         response = requests.get(url, timeout=5)
@@ -53,17 +54,17 @@ def parse_ipx800_status(xml_data):
     except ET.ParseError as e:
         logging.error(f"[ERROR] Failed to parse XML: {e}")
 
-def set_ipx800_led(ip_address, led, state_value):
+def set_ipx800_led(led, state):
     led_index = int(led.replace("led", "")) + 1
-    url = f"http://{ip_address}/preset.htm?led{led_index}={state_value}"
+    url = f"http://{IPX800_IP}/preset.htm?led{led_index}={state}"
     try:
-        logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state_value}: {url}")
+        logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state}: {url}")
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        logging.info(f"[INFO] Successfully set {led} to {state_value}")
+        logging.info(f"[INFO] Successfully set {led} to {state}")
         return response.status_code
     except requests.RequestException as e:
-        logging.error(f"[ERROR] Failed to set LED {led} to {state_value}: {e}")
+        logging.error(f"[ERROR] Failed to set LED {led} to {state}: {e}")
         return None
 
 def notify_home_assistant(data):
@@ -78,16 +79,16 @@ def notify_home_assistant(data):
         logging.error(f"[ERROR] Failed to notify Home Assistant: {e}")
         return None
 
-def poll_ipx800(ip_address, poll_interval):
-    logging.info(f"[INFO] Starting IPX800 poller for {ip_address} with interval: {poll_interval} seconds")
+def main():
+    logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
     while True:
-        status = get_ipx800_status(ip_address)
+        status = get_ipx800_status()
         if status:
             parse_ipx800_status(status)
             logging.info("[INFO] IPX800 status updated")
             notify_home_assistant(state)
             asyncio.run(notify_clients(state))
-        time.sleep(poll_interval)
+        time.sleep(POLL_INTERVAL)
 
 async def notify_clients(state):
     if clients:
@@ -108,13 +109,12 @@ async def websocket_handler(websocket, path):
 async def start_websocket_server():
     async with websockets.serve(websocket_handler, "0.0.0.0", 6789):
         logging.info("[INFO] WebSocket server started on port 6789")
-        await asyncio.Future()  # Run forever
+        await asyncio.Future()
 
 @app.route('/status', methods=['GET'])
 def status():
-    ip_address = request.args.get('ip_address')
-    logging.info(f"[INFO] /status endpoint called for IP: {ip_address}")
-    xml_status = get_ipx800_status(ip_address)
+    logging.info("[INFO] /status endpoint called")
+    xml_status = get_ipx800_status()
     if xml_status:
         logging.info(f"[INFO] XML status received: {xml_status}")
         parse_ipx800_status(xml_status)
@@ -125,56 +125,47 @@ def status():
 
 @app.route('/set_led', methods=['POST'])
 def set_led():
+    logging.info("[INFO] /set_led endpoint called")
     data = request.json
-    ip_address = data.get('ip_address')
+    logging.info(f"[INFO] Data received: {data}")
     led = data.get('led')
     state_value = data.get('state')
-    if ip_address and led and state_value is not None:
-        result = set_ipx800_led(ip_address, led, state_value)
+    if led and state_value is not None:
+        result = set_ipx800_led(led, state_value)
         if result == 200:
             state['leds'][led] = int(state_value)
+            logging.info(f"[INFO] Updated state: {state}")
             notify_home_assistant(state)
             asyncio.run(notify_clients(state))
             return jsonify({"success": True})
         else:
+            logging.error("[ERROR] Failed to set LED on IPX800")
             return jsonify({"error": "Failed to set LED"}), 500
     else:
+        logging.error("[ERROR] Invalid request data")
         return jsonify({"error": "Invalid request"}), 400
 
 @app.route('/toggle_button', methods=['POST'])
 def toggle_button():
+    logging.info("[INFO] /toggle_button endpoint called")
     data = request.json
-    ip_address = data.get('ip_address')
+    logging.info(f"[INFO] Data received: {data}")
     button = data.get('button')
-    if ip_address and button:
+    if button:
         new_state = 'up' if state['buttons'][button] == 'dn' else 'dn'
         state['buttons'][button] = new_state
+        logging.info(f"[INFO] Button {button} new state: {new_state}")
         for led in state['leds']:
             state['leds'][led] = not state['leds'][led]
+        logging.info(f"[INFO] Updated LED states: {state['leds']}")
         notify_home_assistant(state)
         asyncio.run(notify_clients(state))
         return jsonify({"success": True, "new_state": new_state})
     else:
+        logging.error("[ERROR] Invalid request data")
         return jsonify({"error": "Invalid request"}), 400
 
 if __name__ == "__main__":
-    # Démarrer le serveur WebSocket dans un thread distinct
     websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
     websocket_thread.start()
-
-    # Démarrer les boucles de sondage pour chaque IPX800 configuré
-    db_files = [f for f in os.listdir("/config") if f.startswith("ipx800_") and f.endswith(".db")]
-    for db_file in db_files:
-        db_path = os.path.join("/config", db_file)
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT ip_address, poll_interval FROM infos")
-        result = cursor.fetchone()
-        conn.close()
-
-        if result:
-            ip_address, poll_interval = result
-            poll_thread = Thread(target=poll_ipx800, args=(ip_address, poll_interval))
-            poll_thread.start()
-
-    app.run(host="0.0.0.0", port=5213)
+    main()

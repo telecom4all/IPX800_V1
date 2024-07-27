@@ -8,15 +8,12 @@ import aiohttp
 import asyncio
 import websockets
 import json
-import sqlite3
-import os
 
-from .const import DOMAIN, POLL_INTERVAL
+from .const import DOMAIN, POLL_INTERVAL, API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Configurer l'intégration via le fichier configuration.yaml (non utilisé ici)"""
     hass.http.register_view(IPX800View)
     return True
 
@@ -25,32 +22,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN] = {}
 
     if entry.entry_id in hass.data[DOMAIN]:
-        return False  # Entry déjà configurée
+        return False
 
-    db_path = f"/config/ipx800_{entry.data['ip_address']}.db"
-    if not os.path.exists(db_path):
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS infos (
-                device_name TEXT,
-                ip_address TEXT,
-                poll_interval INTEGER,
-                unique_id TEXT
-            )
-        ''')
-        cursor.execute('''
-            INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
-            VALUES (?, ?, ?, ?)
-        ''', (entry.data["device_name"], entry.data["ip_address"], entry.data["poll_interval"], entry.data["unique_id"]))
-        conn.commit()
-        conn.close()
-
-    # Utilisation directe du port 5213
-    portapp = 5213
-    api_url = f"http://localhost:{portapp}"
     poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
-    coordinator = IPX800Coordinator(hass, entry, api_url, update_interval=poll_interval)
+    coordinator = IPX800Coordinator(hass, entry, update_interval=poll_interval)
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -69,7 +44,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 class IPX800Coordinator(DataUpdateCoordinator):
-    def __init__(self, hass, config_entry, api_url, update_interval):
+    def __init__(self, hass, config_entry, update_interval):
         super().__init__(
             hass,
             _LOGGER,
@@ -77,8 +52,8 @@ class IPX800Coordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=update_interval),
         )
         self.config_entry = config_entry
-        self.api_url = api_url
         self._last_update = None
+        self.api_url = config_entry.data[API_URL]
         _LOGGER.info(f"Coordinator initialized with update interval: {update_interval} seconds")
         asyncio.create_task(self._listen_to_websocket())
 
@@ -102,17 +77,15 @@ class IPX800Coordinator(DataUpdateCoordinator):
         return data
 
     async def fetch_data_from_docker(self):
-        _LOGGER.debug(f"Fetching data from Docker at {self.api_url}/status")
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.api_url}/status") as response:
                 if response.status != 200:
-                    _LOGGER.error(f"Failed to fetch data from Docker API: {response.status}")
                     raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
                 data = await response.json()
                 return data
 
     async def _listen_to_websocket(self):
-        await asyncio.sleep(1)  # Attendre que le serveur WebSocket soit prêt
+        await asyncio.sleep(1)
         async with websockets.connect('ws://localhost:6789') as websocket:
             _LOGGER.info("WebSocket connection established")
             while True:

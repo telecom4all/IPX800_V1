@@ -50,7 +50,7 @@ logging_config = {
 def on_starting(server):
     logging.config.dictConfig(logging_config)
 
-def post_fork(server, worker):
+def post_fork(server, worker):s
     logging.config.dictConfig(logging_config)
 EOL
 
@@ -62,8 +62,8 @@ gunicorn --config $GUNICORN_CONF --bind 0.0.0.0:5213 ipx800_v1:app &
 sleep 5
 
 # Démarrer le serveur WebSocket
-echo "Starting WebSocket server"
-python3 /app/ipx800_v1.py &
+#echo "Starting WebSocket server"
+#python3 /app/ipx800_v1.py &
 
 # Afficher un message à l'utilisateur pour redémarrer Home Assistant
 echo "L'installation est terminée. Veuillez redémarrer Home Assistant pour terminer la configuration."
