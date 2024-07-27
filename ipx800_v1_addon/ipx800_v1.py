@@ -6,8 +6,6 @@ from flask_cors import CORS
 import logging
 import xml.etree.ElementTree as ET
 from threading import Thread
-import asyncio
-import websockets
 import json
 
 app = Flask(__name__)
@@ -28,8 +26,6 @@ state = {
     'leds': {f'led{i}': 0 for i in range(8)},
     'buttons': {f'btn{i}': 'up' for i in range(4)}
 }
-
-clients = set()
 
 def get_ipx800_status():
     url = f"http://{IPX800_IP}/status.xml"
@@ -91,30 +87,7 @@ def main():
             parse_ipx800_status(status)
             logging.info("[INFO] IPX800 status updated")
             notify_home_assistant(state)
-            asyncio.run(notify_clients(state))
         time.sleep(POLL_INTERVAL)
-
-async def notify_clients(state):
-    if clients:
-        message = json.dumps(state)
-        logging.info(f"[INFO] Notifying {len(clients)} clients: {message}")
-        await asyncio.wait([client.send(message) for client in clients])
-
-async def websocket_handler(websocket, path):
-    clients.add(websocket)
-    logging.info(f"[INFO] Client connected: {websocket.remote_address}")
-    try:
-        async for message in websocket:
-            pass
-    finally:
-        clients.remove(websocket)
-        logging.info(f"[INFO] Client disconnected: {websocket.remote_address}")
-
-async def start_websocket_server():
-    logging.info("[INFO] Starting WebSocket server on port 6789")
-    async with websockets.serve(websocket_handler, "0.0.0.0", 6789):
-        logging.info("[INFO] WebSocket server started on port 6789")
-        await asyncio.Future()  # Run forever
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -141,7 +114,6 @@ def set_led():
             state['leds'][led] = int(state_value)
             logging.info(f"[INFO] Updated state: {state}")
             notify_home_assistant(state)
-            asyncio.run(notify_clients(state))
             return jsonify({"success": True})
         else:
             logging.error("[ERROR] Failed to set LED on IPX800")
@@ -164,13 +136,10 @@ def toggle_button():
             state['leds'][led] = not state['leds'][led]
         logging.info(f"[INFO] Updated LED states: {state['leds']}")
         notify_home_assistant(state)
-        asyncio.run(notify_clients(state))
         return jsonify({"success": True, "new_state": new_state})
     else:
         logging.error("[ERROR] Invalid request data")
         return jsonify({"error": "Invalid request"}), 400
 
 if __name__ == "__main__":
-    websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
-    websocket_thread.start()
     main()

@@ -7,7 +7,7 @@ import sqlite3
 import os
 import uuid
 
-from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL, WEBSOCKET_URL
+from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +24,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             unique_id = str(uuid.uuid4())
             portapp = 5213
             api_url = f"http://{ip_address}:{portapp}"
-            websocket_url = f"ws://{ip_address}:6789"
 
             db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
@@ -63,7 +62,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "portapp": portapp,
                     "unique_id": unique_id,
                     "api_url": api_url,
-                    "websocket_url": websocket_url,
                     "devices": []
                 }
             )
