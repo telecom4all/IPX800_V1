@@ -24,6 +24,8 @@ RUN chmod -R 755 /app/websocket_server.py
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip list
 
+RUN pip show flask-cors && pip list
+
 # Rendre run.sh exécutable
 RUN chmod +x /app/run.sh
 

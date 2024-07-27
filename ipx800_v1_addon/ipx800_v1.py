@@ -7,8 +7,10 @@ import logging
 import xml.etree.ElementTree as ET
 from threading import Thread
 import asyncio
-import websockets
 import json
+
+from websocket_server import notify_clients, state  # Import from the new websocket_server module
+
 
 app = Flask(__name__)
 CORS(app)
