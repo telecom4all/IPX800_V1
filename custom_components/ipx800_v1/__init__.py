@@ -1,114 +1,149 @@
+import time
+import requests
+import os
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import logging
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.components.http import HomeAssistantView
-from datetime import timedelta, datetime
-import aiohttp
+import xml.etree.ElementTree as ET
+from threading import Thread
 import asyncio
-import websockets
 import json
+import sqlite3
 
-from .const import DOMAIN, POLL_INTERVAL, API_URL, WEBSOCKET_URL
+from websocket_server import notify_clients, state  # Import from the new websocket_server module
 
-_LOGGER = logging.getLogger(__name__)
+app = Flask(__name__)
+CORS(app)
 
-async def async_setup(hass: HomeAssistant, config: dict):
-   # hass.http.register_view(IPX800View)
-    return True
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
+logger = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
+IPX800_IP = os.getenv("IPX800_IP", "192.168.1.121")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
+SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN")
+HEADERS = {
+    "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
+    "Content-Type": "application/json"
+}
 
-    if entry.entry_id in hass.data[DOMAIN]:
-        return False
+def get_ipx800_status():
+    url = f"http://{IPX800_IP}/status.xml"
+    try:
+        logging.info(f"[INFO] Sending request to IPX800 for status: {url}")
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        logging.info("[INFO] Received status from IPX800")
+        return response.text
+    except requests.RequestException as e:
+        logging.error(f"[ERROR] Failed to get status from IPX800: {e}")
+        return None
 
-    poll_interval = int(entry.data.get("poll_interval", POLL_INTERVAL))
-    #api_url = entry.data.get("api_url", API_URL)
-    websocket_url = entry.data.get("websocket_url", WEBSOCKET_URL)
-    
-    coordinator = IPX800Coordinator(hass, entry, update_interval=poll_interval, websocket_url=websocket_url)
-    await coordinator.async_config_entry_first_refresh()
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+def parse_ipx800_status(xml_data):
+    try:
+        root = ET.fromstring(xml_data)
+        for led in state['leds'].keys():
+            state['leds'][led] = int(root.find(led).text)
+        for button in state['buttons'].keys():
+            state['buttons'][button] = root.find(button).text
+        logging.info(f"[INFO] Updated state from IPX800: {state}")
+    except ET.ParseError as e:
+        logging.error(f"[ERROR] Failed to parse XML: {e}")
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
+def set_ipx800_led(led, state_value):
+    led_index = int(led.replace("led", "")) + 1
+    url = f"http://{IPX800_IP}/preset.htm?led{led_index}={state_value}"
+    try:
+        logging.info(f"[INFO] Sending request to IPX800 to set {led} to {state_value}: {url}")
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        logging.info(f"[INFO] Successfully set {led} to {state_value}")
+        return response.status_code
+    except requests.RequestException as e:
+        logging.error(f"[ERROR] Failed to set LED {led} to {state_value}: {e}")
+        return None
 
-    _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
-    return True
+def notify_home_assistant(data):
+    url = "http://supervisor/core/api/states/sensor.ipx800_v1"
+    payload = {
+        "state": "on" if any(data['leds'].values()) else "off",
+        "attributes": data
+    }
+    try:
+        logging.info(f"[INFO] Sending notification to Home Assistant: {url}")
+        response = requests.post(url, json=payload, headers=HEADERS)
+        response.raise_for_status()
+        logging.info("[INFO] Successfully notified Home Assistant")
+        return response.status_code
+    except requests.RequestException as e:
+        logging.error(f"[ERROR] Failed to notify Home Assistant: {e}")
+        return None
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
-    if entry.entry_id in hass.data[DOMAIN]:
-        await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-        await hass.config_entries.async_forward_entry_unload(entry, "light")
-        
-        hass.data[DOMAIN].pop(entry.entry_id)
+def main():
+    logging.info(f"[INFO] Starting IPX800 poller with interval: {POLL_INTERVAL} seconds")
+    while True:
+        status = get_ipx800_status()
+        if status:
+            parse_ipx800_status(status)
+            logging.info("[INFO] IPX800 status updated")
+            notify_home_assistant(state)
+            asyncio.run(notify_clients(state))
+        time.sleep(POLL_INTERVAL)
 
-    return True
+@app.route('/status', methods=['GET'])
+def status():
+    logging.info("[INFO] /status endpoint called")
+    xml_status = get_ipx800_status()
+    if xml_status:
+        logging.info(f"[INFO] XML status received: {xml_status}")
+        parse_ipx800_status(xml_status)
+        return jsonify(state)
+    else:
+        logging.error("[ERROR] Failed to retrieve status from IPX800")
+        return jsonify({"error": "Failed to get status from IPX800"}), 500
 
-class IPX800Coordinator(DataUpdateCoordinator):
-    def __init__(self, hass, config_entry, update_interval, websocket_url):
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="IPX800",
-            update_interval=timedelta(seconds=update_interval),
-        )
-        self.config_entry = config_entry
-        self._last_update = None
-        self.websocket_url = websocket_url
-        _LOGGER.info(f"Coordinator initialized with update interval: {update_interval} seconds")
-        asyncio.create_task(self._listen_to_websocket())
-
-    async def _async_update_data(self):
-        now = datetime.now()
-        if self._last_update is not None:
-            elapsed = now - self._last_update
-            _LOGGER.info(f"Data updated. {elapsed.total_seconds() / 60:.2f} minutes elapsed since last update.")
-        self._last_update = now
-
-        _LOGGER.info("Fetching new data from IPX800 Docker")
-
-        data = await self.fetch_data_from_docker()
-
-        if data:
-            _LOGGER.info("New data fetched successfully")
-            _LOGGER.debug(f"Data received: {data}")
+@app.route('/set_led', methods=['POST'])
+def set_led():
+    logging.info("[INFO] /set_led endpoint called")
+    data = request.json
+    logging.info(f"[INFO] Data received: {data}")
+    led = data.get('led')
+    state_value = data.get('state')
+    if led and state_value is not None:
+        result = set_ipx800_led(led, state_value)
+        if result == 200:
+            state['leds'][led] = int(state_value)
+            logging.info(f"[INFO] Updated state: {state}")
+            notify_home_assistant(state)
+            asyncio.run(notify_clients(state))
+            return jsonify({"success": True})
         else:
-            _LOGGER.error("No data received from IPX800 Docker")
+            logging.error("[ERROR] Failed to set LED on IPX800")
+            return jsonify({"error": "Failed to set LED"}), 500
+    else:
+        logging.error("[ERROR] Invalid request data")
+        return jsonify({"error": "Invalid request"}), 400
 
-        return data
+@app.route('/toggle_button', methods=['POST'])
+def toggle_button():
+    logging.info("[INFO] /toggle_button endpoint called")
+    data = request.json
+    logging.info(f"[INFO] Data received: {data}")
+    button = data.get('button')
+    if button:
+        new_state = 'up' if state['buttons'][button] == 'dn' else 'dn'
+        state['buttons'][button] = new_state
+        logging.info(f"[INFO] Button {button} new state: {new_state}")
+        for led in state['leds']:
+            state['leds'][led] = not state['leds'][led]
+        logging.info(f"[INFO] Updated LED states: {state['leds']}")
+        notify_home_assistant(state)
+        asyncio.run(notify_clients(state))
+        return jsonify({"success": True, "new_state": new_state})
+    else:
+        logging.error("[ERROR] Invalid request data")
+        return jsonify({"error": "Invalid request"}), 400
 
-    async def fetch_data_from_docker(self):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_url}/status") as response:
-                if response.status != 200:
-                    raise UpdateFailed(f"Failed to fetch data from Docker API: {response.status}")
-                data = await response.json()
-                return data
-
-    async def _listen_to_websocket(self):
-        await asyncio.sleep(1)
-        try:
-            async with websockets.connect(self.websocket_url) as websocket:
-                _LOGGER.info("WebSocket connection established")
-                await websocket.send(json.dumps({"command": "get_status"}))
-                while True:
-                    message = await websocket.recv()
-                    data = json.loads(message)
-                    _LOGGER.info(f"WebSocket message received: {data}")
-                    self.async_set_updated_data(data)
-        except Exception as e:
-            _LOGGER.error(f"WebSocket connection error: {e}")
-
-class IPX800View(HomeAssistantView):
-    url = "/api/ipx800_update"
-    name = "api:ipx800_update"
-    requires_auth = False
-
-    async def post(self, request):
-        hass = request.app["hass"]
-        data = await request.json()
-        for entry_id, coordinator in hass.data[DOMAIN].items():
-            coordinator.async_set_updated_data(data)
-        return self.json({"success": True})
+if __name__ == "__main__":
+   # websocket_thread = Thread(target=lambda: asyncio.run(start_websocket_server()))
+   # websocket_thread.start()
+    main()
