@@ -1,6 +1,6 @@
 {
     "name": "IPX800_V1 Addon",
-    "version": "1.0.24",
+    "version": "1.0.25",
     "slug": "ipx800_v1",
     "description": "An addon to interact with IPX800 devices",
     "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
