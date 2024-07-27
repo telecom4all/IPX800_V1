@@ -22,9 +22,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ip_address = user_input["ip_address"]
             poll_interval = user_input["poll_interval"]
             unique_id = str(uuid.uuid4())
-            portapp = 5213
-            api_url = f"http://{ip_address}:{portapp}"
-            websocket_url = f"ws://{ip_address}:6789"
+            websocket_url = f"ws://127.0.0.1:6789"
 
             _LOGGER.debug(f"Creating database for IPX800 at /config/ipx800_{ip_address}.db")
             db_path = f"/config/ipx800_{ip_address}.db"
@@ -62,7 +60,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "poll_interval": poll_interval,
                     "portapp": portapp,
                     "unique_id": unique_id,
-                    "api_url": api_url,
                     "websocket_url": websocket_url,
                     "devices": []
                 }
