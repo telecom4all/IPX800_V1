@@ -4,10 +4,9 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 import sqlite3
-import os
 import uuid
 
-from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL
+from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL, WEBSOCKET_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +23,9 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             unique_id = str(uuid.uuid4())
             portapp = 5213
             api_url = f"http://{ip_address}:{portapp}"
+            websocket_url = f"ws://{ip_address}:6789"
 
+            _LOGGER.debug(f"Creating database for IPX800 at /config/ipx800_{ip_address}.db")
             db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -46,8 +47,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     input_button TEXT,
                     select_leds TEXT,
                     unique_id TEXT,
-                    variable_etat_name TEXT,
-                    poll_interval_device INTEGER
+                    variable_etat_name TEXT
                 )
             ''')
             conn.commit()
@@ -62,6 +62,7 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "portapp": portapp,
                     "unique_id": unique_id,
                     "api_url": api_url,
+                    "websocket_url": websocket_url,
                     "devices": []
                 }
             )
@@ -89,6 +90,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_add_device(self, user_input=None):
         if user_input is not None:
+            _LOGGER.debug(f"Adding device to IPX800 at /config/ipx800_{self.config_entry.data['ip_address']}.db")
             conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
             cursor = conn.cursor()
 
@@ -96,16 +98,13 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             devices.append({
                 "device_name": user_input["device_name"],
                 "input_button": user_input["input_button"],
-                "select_leds": user_input["select_leds"],
-                "poll_interval_device": user_input["poll_interval_device"]
+                "select_leds": user_input["select_leds"]
             })
 
-            variable_etat_name = f'etat_{user_input["device_name"].lower().replace(" ", "_")}'
-
             cursor.execute('''
-                INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, poll_interval_device)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], variable_etat_name, user_input["poll_interval_device"]))
+                INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (user_input["device_name"], user_input["input_button"], ",".join(user_input["select_leds"]), self.config_entry.data["unique_id"], f'etat_{user_input["device_name"].lower().replace(" ", "_")}'))
             conn.commit()
             conn.close()
 
@@ -128,6 +127,5 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                     "led6": "LED 6",
                     "led7": "LED 7",
                 }),
-                vol.Required("poll_interval_device", default=10): int,
             })
         )

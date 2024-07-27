@@ -54,12 +54,6 @@ gunicorn --config $GUNICORN_CONF --bind 0.0.0.0:5213 ipx800_v1:app &
 
 sleep 5
 
-echo "Starting WebSocket server"
-python /app/websocket_server.py &
-
-sleep 5
-
-
-echo "L'installation est terminée. Veuillez redémarrer Home Assistant pour terminer la configuration."
+echo "Installation terminée. Veuillez redémarrer Home Assistant pour terminer la configuration."
 
 wait
