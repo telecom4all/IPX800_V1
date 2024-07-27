@@ -69,9 +69,13 @@ def set_ipx800_led(led, state):
 
 def notify_home_assistant(data):
     url = "http://supervisor/core/api/states/sensor.ipx800_v1"
+    payload = {
+        "state": "on" if any(data['leds'].values()) else "off",
+        "attributes": data
+    }
     try:
         logging.info(f"[INFO] Sending notification to Home Assistant: {url}")
-        response = requests.post(url, json=data, headers=HEADERS)
+        response = requests.post(url, json=payload, headers=HEADERS)
         response.raise_for_status()
         logging.info("[INFO] Successfully notified Home Assistant")
         return response.status_code
