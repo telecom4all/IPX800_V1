@@ -111,9 +111,10 @@ async def websocket_handler(websocket, path):
         logging.info(f"[INFO] Client disconnected: {websocket.remote_address}")
 
 async def start_websocket_server():
+    logging.info("[INFO] Starting WebSocket server on port 6789")
     async with websockets.serve(websocket_handler, "0.0.0.0", 6789):
         logging.info("[INFO] WebSocket server started on port 6789")
-        await asyncio.Future()
+        await asyncio.Future()  # Run forever
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -127,7 +128,7 @@ def status():
         logging.error("[ERROR] Failed to retrieve status from IPX800")
         return jsonify({"error": "Failed to get status from IPX800"}), 500
 
-@app.route('/set_led', methods=['POST'])
+@app.route('/set_led', methods['POST'])
 def set_led():
     logging.info("[INFO] /set_led endpoint called")
     data = request.json

@@ -90,13 +90,16 @@ class IPX800Coordinator(DataUpdateCoordinator):
 
     async def _listen_to_websocket(self):
         await asyncio.sleep(1)
-        async with websockets.connect(self.websocket_url) as websocket:
-            _LOGGER.info("WebSocket connection established")
-            while True:
-                message = await websocket.recv()
-                data = json.loads(message)
-                _LOGGER.info(f"WebSocket message received: {data}")
-                self.async_set_updated_data(data)
+        try:
+            async with websockets.connect(self.websocket_url) as websocket:
+                _LOGGER.info("WebSocket connection established")
+                while True:
+                    message = await websocket.recv()
+                    data = json.loads(message)
+                    _LOGGER.info(f"WebSocket message received: {data}")
+                    self.async_set_updated_data(data)
+        except Exception as e:
+            _LOGGER.error(f"WebSocket connection error: {e}")
 
 class IPX800View(HomeAssistantView):
     url = "/api/ipx800_update"
