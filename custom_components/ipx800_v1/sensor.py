@@ -1,6 +1,6 @@
 import logging
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, CoordinatorEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN
 
@@ -69,6 +69,6 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
     @property
     def state(self):
         if self.coordinator.data:
-            return "on" if any(self.coordinator.data["leds"].get(led, False) for led in self._select_leds) else "off"
+            return "on" if any(self.coordinator.data.get("leds", {}).get(led, False) for led in self._select_leds) else "off"
         _LOGGER.warning("Coordinator data is empty or None")
         return "unknown"

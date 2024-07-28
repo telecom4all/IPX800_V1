@@ -3,9 +3,6 @@ from homeassistant.components.light import LightEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN
-import websockets
-import json
-import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +63,6 @@ class IPX800Light(IPX800Base, LightEntity):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
         state = self.hass.states.get(self.entity_id)
-        _LOGGER.error(f"self._select_leds :  {self._select_leds}")
         if state:
             self._is_on = state.state == "on"
             self._input_button = state.attributes.get("input_button", self._input_button)
@@ -76,7 +72,7 @@ class IPX800Light(IPX800Base, LightEntity):
     @property
     def is_on(self):
         if self.coordinator.data:
-            return any(self.coordinator.data["leds"].get(f"led{i-1}", False) for i in range(1, 9) if f"led{i-1}" in self._select_leds)
+            return any(self.coordinator.data.get("leds", {}).get(led, False) for led in self._select_leds)
         _LOGGER.warning("Coordinator data is empty or None")
         return False
 
@@ -91,13 +87,7 @@ class IPX800Light(IPX800Base, LightEntity):
         await self.coordinator.async_request_refresh()
 
     async def _set_led_state(self, state):
-        # Envoie par le websocket des commandes pour allumer ou éteindre
-        async with websockets.connect('ws://localhost:6789') as websocket:
-            await websocket.send(json.dumps({
-                "action": "set_led_state",
-                "state": state,
-                "select_leds": self._select_leds
-            }))
+        #envoie par le websocket des commande pour allumer ou eteindre
 
     @property
     def supported_color_modes(self):

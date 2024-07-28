@@ -8,7 +8,7 @@ import os
 import uuid
 import json
 import websockets
-from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL, WEBSOCKET_URL, WS_PORT
+from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, WEBSOCKET_URL, WS_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +23,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ip_address = user_input["ip_address"]
             poll_interval = user_input["poll_interval"]
             unique_id = str(uuid.uuid4())
-            portapp = 5213
             websocket_url = f"ws://localhost:{WS_PORT}"
 
             # Création de la base de données SQLite
@@ -60,7 +59,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "device_name": device_name,
                     "ip_address": ip_address,
                     "poll_interval": poll_interval,
-                    "portapp": portapp,
                     "unique_id": unique_id,
                     "websocket_url": websocket_url,
                     "devices": []
@@ -92,11 +90,12 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
             cursor = conn.cursor()
             devices = self.config_entry.data.get("devices", [])
-            devices.append({
+            new_device = {
                 "device_name": user_input["device_name"],
                 "input_button": user_input["input_button"],
                 "select_leds": user_input["select_leds"]
-            })
+            }
+            devices.append(new_device)
             cursor.execute('''
                 INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
                 VALUES (?, ?, ?, ?, ?)
@@ -109,7 +108,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             ))
             conn.commit()
             conn.close()
-
+            
             async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:
                 await websocket.send(json.dumps({
                     "action": "add_device",
@@ -119,7 +118,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                     "unique_id": self.config_entry.data["unique_id"],
                     "variable_etat_name": f'etat_{user_input["device_name"].lower().replace(" ", "_")}'
                 }))
-
+            
             self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
             return self.async_create_entry(title="", data={})
         return self.async_show_form(
