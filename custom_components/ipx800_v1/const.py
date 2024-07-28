@@ -7,3 +7,5 @@ API_URL = "http://localhost:5213"
 WEBSOCKET_URL = "http://localhost:6789"
 # Port utilisé par l'application
 APP_PORT = 5213
+# Port utilisé par websocket
+WS_PORT  = 6789
