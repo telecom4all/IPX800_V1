@@ -4,12 +4,11 @@ import sqlite3
 import json
 import logging
 
-from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, API_URL, WEBSOCKET_URL, APP_PORT, WS_PORT
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
-
+WS_PORT = 6789
 clients = set()
 
 async def register(websocket):
