@@ -4,7 +4,6 @@ import sqlite3
 import json
 import logging
 
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
@@ -25,8 +24,8 @@ async def handle_message(websocket, message):
 
     if action == "init_device":
         await init_device(data)
-    elif action == "update_state":
-        await update_device_state(data)
+    elif action == "set_led_state":
+        await set_led_state(data)
     # Ajouter d'autres actions ici
 
 async def init_device(data):
@@ -64,8 +63,10 @@ async def init_device(data):
 
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
 
-async def update_device_state(data):
-    # Gérer la mise à jour de l'état des appareils ici
+async def set_led_state(data):
+    state = data["state"]
+    select_leds = data["select_leds"]
+    # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     pass
 
 async def poll_ipx800(ip_address, interval):
