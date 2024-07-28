@@ -2,6 +2,7 @@ import logging
 import asyncio
 import websockets
 import json
+import sqlite3
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -31,6 +32,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Charger les appareils depuis la base de données
+    devices = await coordinator.load_devices()
+    entry.data["devices"] = devices
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
     
@@ -91,6 +96,25 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
             data = await self.websocket.recv()
             return json.loads(data)
         return {}
+
+    async def load_devices(self):
+        ip_address = self.config_entry.data["ip_address"]
+        db_path = f"/config/ipx800_{ip_address}.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT device_name, input_button, select_leds, unique_id, variable_etat_name FROM devices')
+        rows = cursor.fetchall()
+        devices = []
+        for row in rows:
+            devices.append({
+                "device_name": row[0],
+                "input_button": row[1],
+                "select_leds": row[2].split(","),
+                "unique_id": row[3],
+                "variable_etat_name": row[4]
+            })
+        conn.close()
+        return devices
 
 class IPX800View(HomeAssistantView):
     url = "/api/ipx800_update"

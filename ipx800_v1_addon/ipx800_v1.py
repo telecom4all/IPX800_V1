@@ -26,6 +26,8 @@ async def handle_message(websocket, message):
         await init_device(data)
     elif action == "set_led_state":
         await set_led_state(data)
+    elif action == "get_data":
+        await get_data(websocket, data)
     # Ajouter d'autres actions ici
 
 async def init_device(data):
@@ -68,6 +70,25 @@ async def set_led_state(data):
     select_leds = data["select_leds"]
     # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     pass
+
+async def get_data(websocket, data):
+    ip_address = data["ip_address"]
+    db_path = f"/config/ipx800_{ip_address}.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM devices')
+    rows = cursor.fetchall()
+    devices = []
+    for row in rows:
+        devices.append({
+            "device_name": row[0],
+            "input_button": row[1],
+            "select_leds": row[2].split(","),
+            "unique_id": row[3],
+            "variable_etat_name": row[4]
+        })
+    await websocket.send(json.dumps({"action": "data", "devices": devices}))
+    conn.close()
 
 async def poll_ipx800(ip_address, interval):
     while True:

@@ -72,7 +72,7 @@ class IPX800Light(IPX800Base, LightEntity):
     @property
     def is_on(self):
         if self.coordinator.data:
-            return any(self.coordinator.data.get("leds", {}).get(led, False) for led in self._select_leds)
+            return any(self.coordinator.data["leds"].get(f"led{i-1}", False) for i in range(1, 9) if f"led{i-1}" in self._select_leds)
         _LOGGER.warning("Coordinator data is empty or None")
         return False
 
@@ -87,7 +87,14 @@ class IPX800Light(IPX800Base, LightEntity):
         await self.coordinator.async_request_refresh()
 
     async def _set_led_state(self, state):
-        #envoie par le websocket des commande pour allumer ou eteindre
+        # Envoie par le websocket des commandes pour allumer ou éteindre
+        if self.coordinator.websocket:
+            payload = {
+                "action": "set_led_state",
+                "leds": self._select_leds,
+                "state": state
+            }
+            await self.coordinator.websocket.send(json.dumps(payload))
 
     @property
     def supported_color_modes(self):
