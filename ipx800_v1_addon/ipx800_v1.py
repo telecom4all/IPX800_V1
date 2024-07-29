@@ -98,7 +98,7 @@ async def get_data(websocket, data):
         })
     await websocket.send(json.dumps({"action": "data", "devices": devices}))
     conn.close()
-
+    
 async def poll_ipx800(ip_address, interval):
     while True:
         # Implémenter la logique pour interroger l'IPX800 et mettre à jour l'état

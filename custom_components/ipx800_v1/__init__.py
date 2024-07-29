@@ -71,6 +71,7 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
         self._last_update = None
         self.websocket_url = websocket_url
         self.websocket = None
+        self.message_queue = asyncio.Queue()  # Initialisation de message_queue
 
     async def start_websocket(self):
         async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:
