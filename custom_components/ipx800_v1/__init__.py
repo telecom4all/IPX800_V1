@@ -87,8 +87,14 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
             await self.process_messages()
 
     async def receive_messages(self, websocket):
-        async for message in websocket:
-            await self.message_queue.put(message)
+        try:
+            async for message in websocket:
+                await self.message_queue.put(message)
+        except websockets.exceptions.ConnectionClosedError as e:
+            _LOGGER.error(f"WebSocket connection closed with error: {e}")
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error in WebSocket connection: {e}")
+
 
     async def process_messages(self):
         while True:

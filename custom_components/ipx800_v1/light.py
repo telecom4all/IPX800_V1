@@ -3,6 +3,7 @@ from homeassistant.components.light import LightEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN
+import json
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -24,13 +24,17 @@ async def handle_message(websocket, message):
     logger.info(f"action:{action}")
     logger.info(f"data:{data}")
 
-    if action == "init_device":
-        await init_device(data)
-    elif action == "set_led_state":
-        await set_led_state(data)
-    elif action == "get_data":
-        await get_data(websocket, data)
-    # Ajouter d'autres actions ici
+    try:
+        if action == "init_device":
+            await init_device(data)
+        elif action == "set_led_state":
+            await set_led_state(data)
+        elif action == "get_data":
+            await get_data(websocket, data)
+        else:
+            logger.warning(f"Unknown action: {action}")
+    except Exception as e:
+        logger.error(f"Error handling message: {e}")
 
 async def init_device(data):
     device_name = data["device_name"]
@@ -76,7 +80,14 @@ async def set_led_state(data):
     state = data["state"]
     select_leds = data["select_leds"]
     # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
-    pass
+    logger.info(f"Setting LED state to {'on' if state else 'off'} for LEDs: {select_leds}")
+    try:
+        # Simulate setting LED state here
+        # e.g., send command to IPX800 device
+        pass
+    except Exception as e:
+        logger.error(f"Error setting LED state: {e}")
+
 
 async def get_data(websocket, data):
     ip_address = data.get("ip_address")
