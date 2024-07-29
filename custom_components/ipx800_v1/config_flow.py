@@ -120,6 +120,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                 }))
             
             self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
+
             return self.async_create_entry(title="", data={})
         return self.async_show_form(
             step_id="add_device",

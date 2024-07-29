@@ -35,7 +35,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Charger les appareils depuis la base de données
     devices = await coordinator.load_devices()
-    entry.data["devices"] = devices
+
+    # Cloner les données de l'entrée de configuration
+    data = {**entry.data, "devices": devices}
+
+    # Mettre à jour l'entrée de configuration
+    #hass.config_entries.async_update_entry(entry, data=data)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "devices": devices})
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
     
@@ -44,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:

@@ -21,6 +21,8 @@ async def register(websocket):
 async def handle_message(websocket, message):
     data = json.loads(message)
     action = data.get("action")
+    logger.info(f"action:{action}")
+    logger.info(f"data:{data}")
 
     if action == "init_device":
         await init_device(data)
@@ -36,6 +38,8 @@ async def init_device(data):
     poll_interval = data["poll_interval"]
     unique_id = data["unique_id"]
 
+    
+
     db_path = f"/config/ipx800_{ip_address}.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -47,10 +51,13 @@ async def init_device(data):
             unique_id TEXT
         )
     ''')
-    cursor.execute('''
-        INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
-        VALUES (?, ?, ?, ?)
-    ''', (device_name, ip_address, poll_interval, unique_id))
+    cursor.execute('SELECT COUNT(*) FROM infos WHERE device_name = ? AND ip_address = ?', (device_name, ip_address))
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
+            VALUES (?, ?, ?, ?)
+        ''', (device_name, ip_address, poll_interval, unique_id))
+        
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS devices (
             device_name TEXT,
