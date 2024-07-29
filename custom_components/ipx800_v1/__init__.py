@@ -40,11 +40,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     data = {**entry.data, "devices": devices}
 
     # Mettre à jour l'entrée de configuration
-    #hass.config_entries.async_update_entry(entry, data=data)
-    hass.config_entries.async_update_entry(entry, data={**entry.data, "devices": devices})
-
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
+    hass.config_entries.async_update_entry(entry, data=data)
+    #hass.config_entries.async_update_entry(entry, data={**entry.data, "devices": devices})
+    #await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
     
+
     # Start the WebSocket connection
     asyncio.create_task(coordinator.start_websocket())
 

@@ -10,7 +10,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug("Setting up IPX800 light entities")
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     entities = []
-
+    _LOGGER.debug(f"config_entry: {config_entry}")
     devices = config_entry.data.get("devices", [])
     _LOGGER.debug(f"Devices in config entry data: {devices}")
     if not devices:
