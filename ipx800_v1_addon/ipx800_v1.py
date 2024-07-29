@@ -57,7 +57,7 @@ async def init_device(data):
             INSERT INTO infos (device_name, ip_address, poll_interval, unique_id)
             VALUES (?, ?, ?, ?)
         ''', (device_name, ip_address, poll_interval, unique_id))
-        
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS devices (
             device_name TEXT,
@@ -79,7 +79,9 @@ async def set_led_state(data):
     pass
 
 async def get_data(websocket, data):
-    ip_address = data["ip_address"]
+    ip_address = data.get("ip_address")
+    if not ip_address:
+        return
     db_path = f"/config/ipx800_{ip_address}.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()

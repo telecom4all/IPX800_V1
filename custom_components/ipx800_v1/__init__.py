@@ -82,13 +82,23 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
                 "poll_interval": self.config_entry.data["poll_interval"],
                 "unique_id": self.config_entry.data["unique_id"]
             }))
-            async for message in websocket:
-                await self.handle_websocket_message(message)
+            asyncio.create_task(self.receive_messages(websocket))
+            await self.process_messages()
+
+    async def receive_messages(self, websocket):
+        async for message in websocket:
+            await self.message_queue.put(message)
+
+    async def process_messages(self):
+        while True:
+            message = await self.message_queue.get()
+            await self.handle_websocket_message(message)
 
     async def handle_websocket_message(self, message):
         data = json.loads(message)
         # Handle the incoming message from the WebSocket
         _LOGGER.info(f"Received message from WebSocket: {data}")
+        self.async_set_updated_data(data)
 
     async def _async_update_data(self):
         now = datetime.now()
@@ -100,7 +110,7 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
         # demander via le websocket les data pour l'integration
         if self.websocket:
             await self.websocket.send(json.dumps({"action": "get_data"}))
-            data = await self.websocket.recv()
+            data = await self.message_queue.get()
             return json.loads(data)
         return {}
 
