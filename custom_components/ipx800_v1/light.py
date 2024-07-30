@@ -59,6 +59,7 @@ class IPX800Light(IPX800Base, LightEntity):
         self._is_on = False
         self._attr_name = f"{device_name} Light"
         self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_light"
+        self._variable_etat_name = f"etat_{device_name.lower().replace(' ', '_')}"
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""
@@ -72,8 +73,9 @@ class IPX800Light(IPX800Base, LightEntity):
 
     @property
     def is_on(self):
-        if self.coordinator.data:
-            return any(self.coordinator.data["leds"].get(f"led{i-1}", False) for i in range(1, 9) if f"led{i-1}" in self._select_leds)
+        leds = self.coordinator.data.get('leds', {})
+        if leds:
+            return any(leds.get(f"led{i-1}", False) for i in range(1, 9) if f"led{i-1}" in self._select_leds)
         _LOGGER.warning("Coordinator data is empty or None")
         return False
 
@@ -93,7 +95,9 @@ class IPX800Light(IPX800Base, LightEntity):
             payload = {
                 "action": "set_led_state",
                 "leds": self._select_leds,
-                "state": state
+                "state": state,
+                "variable_etat_name": self._variable_etat_name,
+                "ip_address": self.coordinator.config_entry.data["ip_address"]
             }
             await self.coordinator.websocket.send(json.dumps(payload))
 
@@ -106,3 +110,4 @@ class IPX800Light(IPX800Base, LightEntity):
         attributes = super().extra_state_attributes
         attributes["input_button"] = self._input_button
         return attributes
+

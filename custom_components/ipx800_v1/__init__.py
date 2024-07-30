@@ -124,6 +124,9 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
 
     async def handle_websocket_message(self, message):
         data = json.loads(message)
+        # Ensure 'leds' key is always present
+        if 'leds' not in data:
+            data['leds'] = {}
         # Handle the incoming message from the WebSocket
         _LOGGER.info(f"Received message from WebSocket: {data}")
         self.async_set_updated_data(data)
@@ -139,7 +142,11 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
         if self.websocket:
             await self.websocket.send(json.dumps({"action": "get_data"}))
             data = await self.message_queue.get()
-            return json.loads(data)
+            data = json.loads(data)
+            # Ensure 'leds' key is always present
+            if 'leds' not in data:
+                data['leds'] = {}
+            return data
         return {}
 
     async def load_devices(self):
