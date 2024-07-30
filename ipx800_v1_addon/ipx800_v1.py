@@ -70,78 +70,64 @@ async def init_device(data):
             input_button TEXT,
             select_leds TEXT,
             unique_id TEXT,
-            variable_etat_name TEXT
+            variable_etat_name TEXT,
+            ip_address TEXT
         )
     ''')
+
+    # Ajouter la colonne ip_address si elle n'existe pas
+    cursor.execute("PRAGMA table_info(devices)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'ip_address' not in columns:
+        cursor.execute('ALTER TABLE devices ADD COLUMN ip_address TEXT')
+
     conn.commit()
     conn.close()
 
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
     asyncio.create_task(manage_led_state(device_name, ip_address, poll_interval))
 
+
 async def manage_led_state(device_name, ip_address, poll_interval):
-    while True:
-        try:
-            db_path = f"/config/ipx800_{ip_address}.db"
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT variable_etat_name, select_leds FROM devices WHERE device_name = ? AND ip_address = ?
-            ''', (device_name, ip_address))
-            row = cursor.fetchone()
-            if row:
-                variable_etat_name, select_leds = row
-                desired_state = '1' if variable_etat_name == 'on' else '0'
+    db_path = f"/config/ipx800_{ip_address}.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT variable_etat_name, select_leds FROM devices WHERE device_name = ?', (device_name,))
+    rows = cursor.fetchall()
+    if rows:
+        variable_etat_name, select_leds = rows[0]
+        while True:
+            cursor.execute(f"SELECT {variable_etat_name} FROM devices WHERE device_name = ?", (device_name,))
+            variable_state = cursor.fetchone()[0]
+            if variable_state == 'on':
+                for led in select_leds.split(','):
+                    await set_led_state({"state": True, "leds": [led], "ip_address": ip_address})
+            else:
+                for led in select_leds.split(','):
+                    await set_led_state({"state": False, "leds": [led], "ip_address": ip_address})
+            await asyncio.sleep(poll_interval)
+    conn.close()
+    
 
-                async with aiohttp.ClientSession() as session:
-                    for led in select_leds.split(','):
-                        url = f"http://{ip_address}/preset.htm?{led}={desired_state}"
-                        async with session.get(url) as response:
-                            if response.status != 200:
-                                logger.error(f"Error setting LED {led} to state {desired_state}: {response.status}")
-                            else:
-                                logger.info(f"Set LED {led} to state {desired_state}")
-            conn.close()
-        except Exception as e:
-            logger.error(f"Error managing LED state: {e}")
-        await asyncio.sleep(poll_interval)
-
-        
 async def set_led_state(data):
     state = data["state"]
-    select_leds = data["select_leds"]
-    variable_etat_name = data["variable_etat_name"]
+    select_leds = data["leds"]
     ip_address = data["ip_address"]
-    
+
+    # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     logger.info(f"Setting LED state to {'on' if state else 'off'} for LEDs: {select_leds}")
-
     try:
-        # Determine the desired state for each LED
-        desired_state = '1' if state else '0'
-
-        # Update the variable_etat_name in the database
-        db_path = f"/config/ipx800_{ip_address}.db"
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE devices
-            SET variable_etat_name = ?
-            WHERE device_name = ? AND ip_address = ?
-        ''', (desired_state, data["device_name"], ip_address))
-        conn.commit()
-        conn.close()
-
-        # Send commands to IPX800 to set the state of the LEDs
         async with aiohttp.ClientSession() as session:
             for led in select_leds:
-                url = f"http://{ip_address}/preset.htm?{led}={desired_state}"
+                url = f"http://{ip_address}/preset.htm?{led}={'1' if state else '0'}"
                 async with session.get(url) as response:
                     if response.status != 200:
-                        logger.error(f"Error setting LED {led} to state {desired_state}: {response.status}")
+                        logger.error(f"Error setting LED {led} to state {'1' if state else '0'}: {response.status}")
                     else:
-                        logger.info(f"Set LED {led} to state {desired_state}")
+                        logger.info(f"Set LED {led} to state {'1' if state else '0'}")
     except Exception as e:
         logger.error(f"Error setting LED state: {e}")
+
 
 
 async def get_data(websocket, data):
