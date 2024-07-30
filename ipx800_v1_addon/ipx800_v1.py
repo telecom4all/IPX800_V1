@@ -5,7 +5,6 @@ import json
 import logging
 import aiohttp
 import requests
-
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -39,7 +38,6 @@ async def handle_message(websocket, message):
             logger.warning(f"Unknown action: {action}")
     except Exception as e:
         logger.error(f"Error handling message: {e}")
-
 
 async def init_device(data):
     device_name = data["device_name"]
@@ -88,7 +86,6 @@ async def init_device(data):
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
     asyncio.create_task(manage_led_state(device_name, ip_address, poll_interval))
 
-
 async def manage_led_state(device_name, ip_address, poll_interval):
     db_path = f"/config/ipx800_{ip_address}.db"
     conn = sqlite3.connect(db_path)
@@ -100,20 +97,17 @@ async def manage_led_state(device_name, ip_address, poll_interval):
         while True:
             cursor.execute(f"SELECT {variable_etat_name} FROM devices WHERE device_name = ?", (device_name,))
             variable_state = cursor.fetchone()[0]
-            if variable_state == 'on':
-                for led in select_leds.split(','):
-                    await set_led_state({"state": True, "leds": [led], "ip_address": ip_address})
-            else:
-                for led in select_leds.split(','):
-                    await set_led_state({"state": False, "leds": [led], "ip_address": ip_address})
+            leds = select_leds.split(',')
+            for led in leds:
+                await set_led_state({"state": variable_state == 'on', "leds": [led], "ip_address": ip_address, "variable_etat_name": variable_etat_name})
             await asyncio.sleep(poll_interval)
     conn.close()
-    
 
 async def set_led_state(data):
     state = data["state"]
     select_leds = data["leds"]
     ip_address = data["ip_address"]
+    variable_etat_name = data["variable_etat_name"]
 
     # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     logger.info(f"Setting LED state to {'on' if state else 'off'} for LEDs: {select_leds}")
@@ -126,10 +120,16 @@ async def set_led_state(data):
                         logger.error(f"Error setting LED {led} to state {'1' if state else '0'}: {response.status}")
                     else:
                         logger.info(f"Set LED {led} to state {'1' if state else '0'}")
+
+        # Mettre à jour l'état dans la base de données
+        db_path = f"/config/ipx800_{ip_address}.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE devices SET {variable_etat_name} = ? WHERE device_name = ?", ('on' if state else 'off', device_name))
+        conn.commit()
+        conn.close()
     except Exception as e:
         logger.error(f"Error setting LED state: {e}")
-
-
 
 async def get_data(websocket, data):
     ip_address = data.get("ip_address")
@@ -158,21 +158,21 @@ async def poll_ipx800(ip_address, interval):
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'http://{ip_address}/status.xml') as response:
                     response_text = await response.text()
-                    await process_status(response_text)
+                    await process_status(response_text, ip_address)
         except Exception as e:
             logger.error(f"Error polling IPX800: {e}")
         await asyncio.sleep(interval)
 
-async def process_status(xml_data):
+async def process_status(xml_data, ip_address):
     root = ET.fromstring(xml_data)
     status = {}
     for child in root:
         status[child.tag] = child.text
+
     logger.info(f"Status: {status}")
     # Notify all connected clients with the new status
     message = json.dumps({"action": "status_update", "status": status})
     await notify_clients(message)
-
 
 async def notify_clients(message):
     if clients:

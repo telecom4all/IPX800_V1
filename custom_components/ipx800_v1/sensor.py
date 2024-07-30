@@ -2,6 +2,7 @@ import logging
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
+import sqlite3
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
         self._is_on = False
         self._attr_name = f"{device_name} Light Sensor"
         self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_light_sensor"
+        self._variable_etat_name = f"etat_{device_name.lower().replace(' ', '_')}"
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""
@@ -68,7 +70,11 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
 
     @property
     def state(self):
-        if self.coordinator.data:
-            return "on" if any(self.coordinator.data.get("leds", {}).get(led, False) for led in self._select_leds) else "off"
-        _LOGGER.warning("Coordinator data is empty or None")
-        return "unknown"
+        # Ici, nous devons lire l'état de `variable_etat_name` à partir de la base de données
+        db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT {self._variable_etat_name} FROM devices WHERE device_name = ?", (self._name,))
+        variable_state = cursor.fetchone()[0]
+        conn.close()
+        return "on" if variable_state == 'on' else "off"

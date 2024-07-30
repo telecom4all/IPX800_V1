@@ -124,15 +124,12 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
 
     async def handle_websocket_message(self, message):
         data = json.loads(message)
+        # Ensure 'leds' key is always present
+        if 'leds' not in data:
+            data['leds'] = {}
         # Handle the incoming message from the WebSocket
         _LOGGER.info(f"Received message from WebSocket: {data}")
-        if data["action"] == "status_update":
-            status = data["status"]
-            # Update the coordinator data with the new status
-            self.async_set_updated_data({"leds": status})
-        else:
-            self.async_set_updated_data(data)
-
+        self.async_set_updated_data(data)
 
     async def _async_update_data(self):
         now = datetime.now()
