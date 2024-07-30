@@ -46,7 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await setup_entities(hass, entry)
 
     # Start the WebSocket connection
-    asyncio.create_task(coordinator.start_websocket())
+    asyncio.create_task(coordinator.ensure_websocket_connection())
 
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
@@ -86,6 +86,14 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
         self.websocket_url = websocket_url
         self.websocket = None
         self.message_queue = asyncio.Queue()  # Initialisation de message_queue
+
+    async def ensure_websocket_connection(self):
+        while True:
+            try:
+                await self.start_websocket()
+            except Exception as e:
+                _LOGGER.error(f"WebSocket connection error: {e}")
+                await asyncio.sleep(5)  # wait before retrying
 
     async def start_websocket(self):
         async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:

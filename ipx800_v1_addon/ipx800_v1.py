@@ -6,7 +6,6 @@ import logging
 import aiohttp
 import xml.etree.ElementTree as ET
 
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
@@ -44,8 +43,6 @@ async def init_device(data):
     ip_address = data["ip_address"]
     poll_interval = data["poll_interval"]
     unique_id = data["unique_id"]
-
-    
 
     db_path = f"/config/ipx800_{ip_address}.db"
     conn = sqlite3.connect(db_path)
@@ -91,7 +88,6 @@ async def set_led_state(data):
     except Exception as e:
         logger.error(f"Error setting LED state: {e}")
 
-
 async def get_data(websocket, data):
     ip_address = data.get("ip_address")
     if not ip_address:
@@ -112,7 +108,7 @@ async def get_data(websocket, data):
         })
     await websocket.send(json.dumps({"action": "data", "devices": devices}))
     conn.close()
-    
+
 async def poll_ipx800(ip_address, interval):
     while True:
         try:
@@ -138,10 +134,15 @@ async def notify_clients(message):
     if clients:
         await asyncio.gather(*(client.send(message) for client in clients))
 
-
 async def main():
-    async with websockets.serve(register, "0.0.0.0", WS_PORT):
-        await asyncio.Future()  # run forever
+    while True:
+        try:
+            async with websockets.serve(register, "0.0.0.0", WS_PORT):
+                logger.info(f"WebSocket server started on ws://0.0.0.0:{WS_PORT}")
+                await asyncio.Future()  # run forever
+        except Exception as e:
+            logger.error(f"WebSocket server error: {e}")
+            await asyncio.sleep(5)  # wait before retrying
 
 if __name__ == "__main__":
     logger.info(f"Starting WebSocket server on ws://0.0.0.0:{WS_PORT}")
