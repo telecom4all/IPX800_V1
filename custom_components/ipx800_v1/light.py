@@ -64,6 +64,9 @@ class IPX800Light(IPX800Base, LightEntity):
     async def async_added_to_hass(self):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
         state = self.hass.states.get(self.entity_id)
         if state:
             self._is_on = state.state == "on"
@@ -75,7 +78,7 @@ class IPX800Light(IPX800Base, LightEntity):
     def is_on(self):
         leds = self.coordinator.data.get('leds', {})
         if leds:
-            return any(leds.get(f"led{i-1}", False) for i in range(1, 9) if f"led{i-1}" in self._select_leds)
+            return any(leds.get(f"led{i}", "0") == "1" for i in range(8) if f"led{i}" in self._select_leds)
         _LOGGER.warning("Coordinator data is empty or None")
         return False
 
@@ -110,4 +113,3 @@ class IPX800Light(IPX800Base, LightEntity):
         attributes = super().extra_state_attributes
         attributes["input_button"] = self._input_button
         return attributes
-

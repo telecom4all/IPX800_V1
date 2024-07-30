@@ -40,6 +40,7 @@ async def handle_message(websocket, message):
     except Exception as e:
         logger.error(f"Error handling message: {e}")
 
+
 async def init_device(data):
     device_name = data["device_name"]
     ip_address = data["ip_address"]
@@ -171,6 +172,7 @@ async def process_status(xml_data):
     # Notify all connected clients with the new status
     message = json.dumps({"action": "status_update", "status": status})
     await notify_clients(message)
+
 
 async def notify_clients(message):
     if clients:
