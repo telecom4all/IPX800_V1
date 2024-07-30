@@ -136,7 +136,7 @@ async def process_status(xml_data):
 
 async def notify_clients(message):
     if clients:
-        await asyncio.wait([client.send(message) for client in clients])
+        await asyncio.gather(*(client.send(message) for client in clients))
 
 
 async def main():
