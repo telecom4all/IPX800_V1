@@ -3,6 +3,9 @@ import websockets
 import sqlite3
 import json
 import logging
+import aiohttp
+import xml.etree.ElementTree as ET
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
@@ -112,8 +115,29 @@ async def get_data(websocket, data):
     
 async def poll_ipx800(ip_address, interval):
     while True:
-        # Implémenter la logique pour interroger l'IPX800 et mettre à jour l'état
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://{ip_address}/status.xml') as response:
+                    response_text = await response.text()
+                    await process_status(response_text)
+        except Exception as e:
+            logger.error(f"Error polling IPX800: {e}")
         await asyncio.sleep(interval)
+
+async def process_status(xml_data):
+    root = ET.fromstring(xml_data)
+    status = {}
+    for child in root:
+        status[child.tag] = child.text
+    logger.info(f"Status: {status}")
+    # Notify all connected clients with the new status
+    message = json.dumps({"action": "status_update", "status": status})
+    await notify_clients(message)
+
+async def notify_clients(message):
+    if clients:
+        await asyncio.wait([client.send(message) for client in clients])
+
 
 async def main():
     async with websockets.serve(register, "0.0.0.0", WS_PORT):

@@ -41,9 +41,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Mettre à jour l'entrée de configuration
     hass.config_entries.async_update_entry(entry, data=data)
-    #hass.config_entries.async_update_entry(entry, data={**entry.data, "devices": devices})
-    #await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "light"])
-    
+
+    # Restaurer les entités light et sensor
+    await setup_entities(hass, entry)
 
     # Start the WebSocket connection
     asyncio.create_task(coordinator.start_websocket())
@@ -51,13 +51,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     _LOGGER.debug(f"Setup entry for {entry.entry_id} completed")
     return True
 
-
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         await hass.config_entries.async_forward_entry_unload(entry, "sensor")
         await hass.config_entries.async_forward_entry_unload(entry, "light")
         hass.data[DOMAIN].pop(entry.entry_id)
     return True
+
+async def setup_entities(hass, entry):
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
+
+    for device in entry.data.get("devices", []):
+        device_name = device["device_name"]
+        light_entity_id = f"light.{device_name.lower().replace(' ', '_')}_light"
+        sensor_entity_id = f"sensor.{device_name.lower().replace(' ', '_')}_light_sensor"
+
+        if not entity_registry.async_is_registered(light_entity_id):
+            await hass.config_entries.async_forward_entry_setup(entry, "light")
+
+        if not entity_registry.async_is_registered(sensor_entity_id):
+            await hass.config_entries.async_forward_entry_setup(entry, "sensor")
 
 class IPX800V1Coordinator(DataUpdateCoordinator):
     def __init__(self, hass, config_entry, update_interval, websocket_url):
@@ -94,7 +108,6 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
             _LOGGER.error(f"WebSocket connection closed with error: {e}")
         except Exception as e:
             _LOGGER.error(f"Unexpected error in WebSocket connection: {e}")
-
 
     async def process_messages(self):
         while True:
