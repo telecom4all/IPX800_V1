@@ -43,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.config_entries.async_update_entry(entry, data=data)
 
     # Restaurer les entités light et sensor
-    await setup_entities(hass, entry)
+    await setup_entities(hass, entry, devices)
 
     # Start the WebSocket connection
     asyncio.create_task(coordinator.ensure_websocket_connection())
@@ -58,11 +58,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN].pop(entry.entry_id)
     return True
 
-async def setup_entities(hass, entry):
+async def setup_entities(hass, entry, devices):
     entity_registry = er.async_get(hass)
-    device_registry = dr.async_get(hass)
 
-    for device in entry.data.get("devices", []):
+    for device in devices:
         device_name = device["device_name"]
         light_entity_id = f"light.{device_name.lower().replace(' ', '_')}_light"
         sensor_entity_id = f"sensor.{device_name.lower().replace(' ', '_')}_light_sensor"
