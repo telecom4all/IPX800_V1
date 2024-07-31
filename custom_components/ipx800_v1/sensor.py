@@ -35,10 +35,11 @@ class IPX800Base(CoordinatorEntity):
         self._name = device_name
         self._select_leds = select_leds
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, config_entry.entry_id)},
+            identifiers={(DOMAIN, device_name)},
             name=device_name,
             manufacturer="GCE Electronics",
             model="IPX800_V1",
+            via_device=(DOMAIN, config_entry.entry_id)
         )
         _LOGGER.debug(f"Initialized IPX800 entity: {self._name}")
 
