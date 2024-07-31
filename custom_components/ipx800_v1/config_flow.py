@@ -114,8 +114,7 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
 
             # Ajouter les entités pour le nouveau sous-appareil
-            await self.hass.config_entries.async_forward_entry_setup(self.config_entry, "light")
-            await self.hass.config_entries.async_forward_entry_setup(self.config_entry, "sensor")
+            await add_new_entities(self.hass, self.config_entry, [new_device])
             
             async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:
                 await websocket.send(json.dumps({
@@ -147,3 +146,8 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                 }),
             })
         )
+
+async def add_new_entities(hass, config_entry, devices):
+    for device in devices:
+        await hass.config_entries.async_forward_entry_setup(config_entry, "light")
+        await hass.config_entries.async_forward_entry_setup(config_entry, "sensor")

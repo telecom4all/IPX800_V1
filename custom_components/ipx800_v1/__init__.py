@@ -42,8 +42,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Mettre à jour l'entrée de configuration
     hass.config_entries.async_update_entry(entry, data=data)
 
-    # Restaurer les entités light et sensor
-    await setup_entities(hass, entry, devices)
+    # Créer des sous-appareils et leurs entités
+    await setup_devices_and_entities(hass, entry, devices)
 
     # Start the WebSocket connection
     asyncio.create_task(coordinator.ensure_websocket_connection())
@@ -58,11 +58,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN].pop(entry.entry_id)
     return True
 
-async def setup_entities(hass, entry, devices):
+async def setup_devices_and_entities(hass, entry, devices):
+    device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)
 
     for device in devices:
         device_name = device["device_name"]
+        device_id = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, device["unique_id"])},
+            name=device_name,
+            manufacturer="GCE Electronics",
+            model="IPX800_V1",
+            via_device=(DOMAIN, entry.entry_id)
+        ).id
+
         light_entity_id = f"light.{device_name.lower().replace(' ', '_')}_light"
         sensor_entity_id = f"sensor.{device_name.lower().replace(' ', '_')}_light_sensor"
 
