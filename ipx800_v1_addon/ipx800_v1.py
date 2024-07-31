@@ -34,6 +34,8 @@ async def handle_message(websocket, message):
             await set_led_state(data)
         elif action == "get_data":
             await get_data(websocket, data)
+        elif action == "add_device":
+            await add_device(data)
         else:
             logger.warning(f"Unknown action: {action}")
     except Exception as e:
@@ -75,13 +77,13 @@ async def init_device(data):
         )
     ''')
 
-    # Ajouter les colonnes manquantes si elles n'existent pas
+    # Ajouter la colonne ip_address si elle n'existe pas
     cursor.execute("PRAGMA table_info(devices)")
     columns = [column[1] for column in cursor.fetchall()]
     if 'ip_address' not in columns:
         cursor.execute('ALTER TABLE devices ADD COLUMN ip_address TEXT')
     if 'state' not in columns:
-        cursor.execute('ALTER TABLE devices ADD COLUMN state TEXT DEFAULT "off"')
+        cursor.execute("ALTER TABLE devices ADD COLUMN state TEXT DEFAULT 'off'")
 
     conn.commit()
     conn.close()
@@ -89,8 +91,24 @@ async def init_device(data):
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
     asyncio.create_task(manage_led_state(device_name, ip_address, poll_interval))
 
+async def add_device(data):
+    device_name = data["device_name"]
+    input_button = data["input_button"]
+    select_leds = ",".join(data["select_leds"])
+    unique_id = data["unique_id"]
+    variable_etat_name = data["variable_etat_name"]
+    ip_address = data["ip_address"]
 
-
+    db_path = f"/config/ipx800_{ip_address}.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, state)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, 'off'))
+    conn.commit()
+    conn.close()
+    logger.info(f"Device {device_name} added with leds {select_leds} and variable {variable_etat_name}.")
 
 async def manage_led_state(device_name, ip_address, poll_interval):
     db_path = f"/config/ipx800_{ip_address}.db"
@@ -105,7 +123,7 @@ async def manage_led_state(device_name, ip_address, poll_interval):
             variable_state = cursor.fetchone()[0]
             leds = select_leds.split(',')
             for led in leds:
-                await set_led_state({"state": variable_state == 'on', "leds": [led], "ip_address": ip_address, "variable_etat_name": variable_etat_name})
+                await set_led_state({"state": variable_state == 'on', "leds": [led], "ip_address": ip_address, "variable_etat_name": variable_etat_name, "device_name": device_name})
             await asyncio.sleep(poll_interval)
     conn.close()
 
@@ -114,7 +132,7 @@ async def set_led_state(data):
     select_leds = data["leds"]
     ip_address = data["ip_address"]
     variable_etat_name = data["variable_etat_name"]
-    device_name = data["device_name"]
+    device_name = data.get("device_name", None)
 
     # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     logger.info(f"Setting LED state to {'on' if state else 'off'} for LEDs: {select_leds}")
@@ -128,18 +146,16 @@ async def set_led_state(data):
                     else:
                         logger.info(f"Set LED {led} to state {'1' if state else '0'}")
 
-        # Mettre à jour l'état dans la base de données
-        db_path = f"/config/ipx800_{ip_address}.db"
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute(f"UPDATE devices SET state = ? WHERE device_name = ?", ('on' if state else 'off', device_name))
-        conn.commit()
-        conn.close()
+        if device_name:
+            # Mettre à jour l'état dans la base de données
+            db_path = f"/config/ipx800_{ip_address}.db"
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute(f"UPDATE devices SET state = ? WHERE device_name = ?", ('on' if state else 'off', device_name))
+            conn.commit()
+            conn.close()
     except Exception as e:
         logger.error(f"Error setting LED state: {e}")
-
-
-
 
 async def get_data(websocket, data):
     ip_address = data.get("ip_address")
@@ -157,7 +173,9 @@ async def get_data(websocket, data):
             "input_button": row[1],
             "select_leds": row[2].split(","),
             "unique_id": row[3],
-            "variable_etat_name": row[4]
+            "variable_etat_name": row[4],
+            "ip_address": row[5],
+            "state": row[6]
         })
     await websocket.send(json.dumps({"action": "data", "devices": devices}))
     conn.close()
