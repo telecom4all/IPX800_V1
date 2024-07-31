@@ -70,21 +70,27 @@ async def init_device(data):
             select_leds TEXT,
             unique_id TEXT,
             variable_etat_name TEXT,
-            ip_address TEXT
+            ip_address TEXT,
+            state TEXT DEFAULT 'off'
         )
     ''')
 
-    # Ajouter la colonne ip_address si elle n'existe pas
+    # Ajouter les colonnes manquantes si elles n'existent pas
     cursor.execute("PRAGMA table_info(devices)")
     columns = [column[1] for column in cursor.fetchall()]
     if 'ip_address' not in columns:
         cursor.execute('ALTER TABLE devices ADD COLUMN ip_address TEXT')
+    if 'state' not in columns:
+        cursor.execute('ALTER TABLE devices ADD COLUMN state TEXT DEFAULT "off"')
 
     conn.commit()
     conn.close()
 
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
     asyncio.create_task(manage_led_state(device_name, ip_address, poll_interval))
+
+
+
 
 async def manage_led_state(device_name, ip_address, poll_interval):
     db_path = f"/config/ipx800_{ip_address}.db"
@@ -108,6 +114,7 @@ async def set_led_state(data):
     select_leds = data["leds"]
     ip_address = data["ip_address"]
     variable_etat_name = data["variable_etat_name"]
+    device_name = data["device_name"]
 
     # Implémenter la logique pour allumer ou éteindre les LED de l'IPX800
     logger.info(f"Setting LED state to {'on' if state else 'off'} for LEDs: {select_leds}")
@@ -125,11 +132,14 @@ async def set_led_state(data):
         db_path = f"/config/ipx800_{ip_address}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(f"UPDATE devices SET {variable_etat_name} = ? WHERE device_name = ?", ('on' if state else 'off', device_name))
+        cursor.execute(f"UPDATE devices SET state = ? WHERE device_name = ?", ('on' if state else 'off', device_name))
         conn.commit()
         conn.close()
     except Exception as e:
         logger.error(f"Error setting LED state: {e}")
+
+
+
 
 async def get_data(websocket, data):
     ip_address = data.get("ip_address")

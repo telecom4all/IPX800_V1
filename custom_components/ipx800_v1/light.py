@@ -74,11 +74,11 @@ class IPX800Light(IPX800Base, LightEntity):
 
     @property
     def is_on(self):
-        # Ici, nous devons lire l'état de `variable_etat_name` à partir de la base de données
+        # Ici, nous devons lire l'état de `state` à partir de la base de données
         db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(f"SELECT {self._variable_etat_name} FROM devices WHERE device_name = ?", (self._name,))
+        cursor.execute("SELECT state FROM devices WHERE device_name = ?", (self._name,))
         variable_state = cursor.fetchone()[0]
         conn.close()
         return variable_state == 'on'
@@ -101,7 +101,8 @@ class IPX800Light(IPX800Base, LightEntity):
                 "leds": self._select_leds,
                 "state": state,
                 "variable_etat_name": self._variable_etat_name,
-                "ip_address": self.coordinator.config_entry.data["ip_address"]
+                "ip_address": self.coordinator.config_entry.data["ip_address"],
+                "device_name": self._name  # Ajout de device_name
             }
             await self.coordinator.websocket.send(json.dumps(payload))
 

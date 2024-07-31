@@ -27,6 +27,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug(f"Sensor entities to add: {entities}")
     async_add_entities(entities)
 
+
 class IPX800Base(CoordinatorEntity):
     def __init__(self, coordinator, config_entry, device_name, select_leds):
         super().__init__(coordinator)
@@ -70,11 +71,11 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
 
     @property
     def state(self):
-        # Ici, nous devons lire l'état de `variable_etat_name` à partir de la base de données
+        # Ici, nous devons lire l'état de `state` à partir de la base de données
         db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(f"SELECT {self._variable_etat_name} FROM devices WHERE device_name = ?", (self._name,))
+        cursor.execute("SELECT state FROM devices WHERE device_name = ?", (self._name,))
         variable_state = cursor.fetchone()[0]
         conn.close()
         return "on" if variable_state == 'on' else "off"
