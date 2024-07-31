@@ -47,7 +47,8 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     input_button TEXT,
                     select_leds TEXT,
                     unique_id TEXT,
-                    variable_etat_name TEXT
+                    variable_etat_name TEXT,
+                    ip_address TEXT
                 )
             ''')
             conn.commit()
@@ -97,14 +98,15 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
             }
             devices.append(new_device)
             cursor.execute('''
-                INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address)
+                VALUES (?, ?, ?, ?, ?, ?)
             ''', (
                 user_input["device_name"],
                 user_input["input_button"],
                 ",".join(user_input["select_leds"]),
                 self.config_entry.data["unique_id"],
-                f'etat_{user_input["device_name"].lower().replace(" ", "_")}'
+                f'etat_{user_input["device_name"].lower().replace(" ", "_")}',
+                self.config_entry.data["ip_address"]
             ))
             conn.commit()
             conn.close()
@@ -122,7 +124,8 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
                     "input_button": user_input["input_button"],
                     "select_leds": user_input["select_leds"],
                     "unique_id": self.config_entry.data["unique_id"],
-                    "variable_etat_name": f'etat_{user_input["device_name"].lower().replace(" ", "_")}'
+                    "variable_etat_name": f'etat_{user_input["device_name"].lower().replace(" ", "_")}',
+                    "ip_address": self.config_entry.data["ip_address"]
                 }))
 
             return self.async_create_entry(title="", data={})
