@@ -72,7 +72,7 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
 
     @property
     def state(self):
-        # Ici, nous devons lire l'état de `state` à partir de la base de données
+        # Ici, nous devons lire l'état de state à partir de la base de données
         db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()

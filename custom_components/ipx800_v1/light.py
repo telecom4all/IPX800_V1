@@ -75,7 +75,7 @@ class IPX800Light(IPX800Base, LightEntity):
 
     @property
     def is_on(self):
-        # Ici, nous devons lire l'état de `state` à partir de la base de données
+        # Ici, nous devons lire l'état de state à partir de la base de données
         db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -116,4 +116,3 @@ class IPX800Light(IPX800Base, LightEntity):
         attributes = super().extra_state_attributes
         attributes["input_button"] = self._input_button
         return attributes
-
