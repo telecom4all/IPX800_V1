@@ -12,6 +12,9 @@ from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, WEBSOCKET_URL, WS_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
+def clean_entity_name(name):
+    return name.lower().replace(' ', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('à', 'a').replace('ç', 'c')
+
 @config_entries.HANDLERS.register(DOMAIN)
 class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -25,7 +28,6 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             unique_id = str(uuid.uuid4())
             websocket_url = f"ws://localhost:{WS_PORT}"
 
-            # Création de la base de données SQLite
             db_path = f"/config/ipx800_{ip_address}.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -48,7 +50,8 @@ class IPX800ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     select_leds TEXT,
                     unique_id TEXT,
                     variable_etat_name TEXT,
-                    ip_address TEXT
+                    ip_address TEXT,
+                    state TEXT DEFAULT 'off'
                 )
             ''')
             conn.commit()
@@ -90,42 +93,49 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             conn = sqlite3.connect(f"/config/ipx800_{self.config_entry.data['ip_address']}.db")
             cursor = conn.cursor()
+
             devices = self.config_entry.data.get("devices", [])
             new_device = {
                 "device_name": user_input["device_name"],
                 "input_button": user_input["input_button"],
                 "select_leds": user_input["select_leds"]
             }
-            devices.append(new_device)
-            cursor.execute('''
-                INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                user_input["device_name"],
-                user_input["input_button"],
-                ",".join(user_input["select_leds"]),
-                self.config_entry.data["unique_id"],
-                f'etat_{user_input["device_name"].lower().replace(" ", "_")}',
-                self.config_entry.data["ip_address"]
-            ))
-            conn.commit()
-            conn.close()
-            
-            self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
 
-            # Ajouter les entités pour le nouveau sous-appareil
-            await add_new_entities(self.hass, self.config_entry, [new_device])
-            
-            async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:
-                await websocket.send(json.dumps({
-                    "action": "add_device",
-                    "device_name": user_input["device_name"],
-                    "input_button": user_input["input_button"],
-                    "select_leds": user_input["select_leds"],
-                    "unique_id": self.config_entry.data["unique_id"],
-                    "variable_etat_name": f'etat_{user_input["device_name"].lower().replace(" ", "_")}',
-                    "ip_address": self.config_entry.data["ip_address"]
-                }))
+            cursor.execute('''
+                SELECT COUNT(*) FROM devices WHERE device_name = ? AND ip_address = ?
+            ''', (user_input["device_name"], self.config_entry.data["ip_address"]))
+            if cursor.fetchone()[0] == 0:
+                devices.append(new_device)
+                cursor.execute('''
+                    INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    user_input["device_name"],
+                    user_input["input_button"],
+                    ",".join(user_input["select_leds"]),
+                    self.config_entry.data["unique_id"],
+                    f'etat_{clean_entity_name(user_input["device_name"])}',
+                    self.config_entry.data["ip_address"],
+                    'off'
+                ))
+                conn.commit()
+                conn.close()
+
+                self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
+
+                # Ajouter les entités pour le nouveau sous-appareil
+                await add_new_entities(self.hass, self.config_entry, [new_device])
+
+                async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:
+                    await websocket.send(json.dumps({
+                        "action": "add_device",
+                        "device_name": user_input["device_name"],
+                        "input_button": user_input["input_button"],
+                        "select_leds": user_input["select_leds"],
+                        "unique_id": self.config_entry.data["unique_id"],
+                        "variable_etat_name": f'etat_{clean_entity_name(user_input["device_name"])}',
+                        "ip_address": self.config_entry.data["ip_address"]
+                    }))
 
             return self.async_create_entry(title="", data={})
             
@@ -148,6 +158,9 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
         )
 
 async def add_new_entities(hass, config_entry, devices):
+    await hass.config_entries.async_forward_entry_setups(config_entry, ["light", "sensor"])
     for device in devices:
-        await hass.config_entries.async_forward_entry_setup(config_entry, "light")
-        await hass.config_entries.async_forward_entry_setup(config_entry, "sensor")
+        entity_id_light = f"light.{clean_entity_name(device['device_name'])}_light"
+        entity_id_sensor = f"sensor.{clean_entity_name(device['device_name'])}_light_sensor"
+        hass.states.async_set(entity_id_light, "off")
+        hass.states.async_set(entity_id_sensor, "off")

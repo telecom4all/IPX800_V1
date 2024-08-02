@@ -102,13 +102,19 @@ async def add_device(data):
     db_path = f"/config/ipx800_{ip_address}.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+
     cursor.execute('''
-        INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, state)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, 'off'))
-    conn.commit()
+        SELECT COUNT(*) FROM devices WHERE device_name = ? AND ip_address = ?
+    ''', (device_name, ip_address))
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO devices (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, state)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (device_name, input_button, select_leds, unique_id, variable_etat_name, ip_address, 'off'))
+        conn.commit()
     conn.close()
     logger.info(f"Device {device_name} added with leds {select_leds} and variable {variable_etat_name}.")
+    
 
 async def manage_led_state(device_name, ip_address, poll_interval):
     db_path = f"/config/ipx800_{ip_address}.db"

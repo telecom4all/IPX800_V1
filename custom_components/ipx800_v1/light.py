@@ -2,11 +2,15 @@ import logging
 from homeassistant.components.light import LightEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from .const import DOMAIN
 import json
 import sqlite3
 
 _LOGGER = logging.getLogger(__name__)
+
+def clean_entity_name(name):
+    return name.lower().replace(' ', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('à', 'a').replace('ç', 'c')
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug("Setting up IPX800 light entities")
@@ -18,13 +22,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if not devices:
         _LOGGER.warning("No devices found in config entry data.")
 
+    entity_registry = async_get_entity_registry(hass)
+
     for device in devices:
         device_name = device["device_name"]
         input_button = device["input_button"]
         select_leds = device["select_leds"]
-        _LOGGER.debug(f"Adding light entity: {device_name} Light")
+        unique_id = f"{config_entry.entry_id}_{clean_entity_name(device_name)}_light"
 
-        entities.append(IPX800Light(coordinator, config_entry, device_name, input_button, select_leds))
+        if unique_id in entity_registry.entities:
+            _LOGGER.warning(f"Entity with unique_id {unique_id} already exists. Skipping.")
+            continue
+
+        _LOGGER.debug(f"Adding light entity: {device_name} Light")
+        entities.append(IPX800Light(coordinator, config_entry, device_name, input_button, select_leds, unique_id))
 
     _LOGGER.debug(f"Light entities to add: {entities}")
     async_add_entities(entities)
@@ -55,13 +66,13 @@ class IPX800Base(CoordinatorEntity):
         }
 
 class IPX800Light(IPX800Base, LightEntity):
-    def __init__(self, coordinator, config_entry, device_name, input_button, select_leds):
+    def __init__(self, coordinator, config_entry, device_name, input_button, select_leds, unique_id):
         super().__init__(coordinator, config_entry, device_name, select_leds)
         self._input_button = input_button
         self._is_on = False
         self._attr_name = f"{device_name} Light"
-        self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_light"
-        self._variable_etat_name = f"etat_{device_name.lower().replace(' ', '_')}"
+        self._attr_unique_id = unique_id
+        self._variable_etat_name = f"etat_{clean_entity_name(device_name)}"
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""

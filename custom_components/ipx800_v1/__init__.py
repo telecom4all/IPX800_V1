@@ -42,6 +42,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Mettre à jour l'entrée de configuration
     hass.config_entries.async_update_entry(entry, data=data)
 
+    # Supprimer les entités existantes avant d'ajouter de nouvelles
+    await remove_existing_entities(hass, entry)
+
     # Créer des sous-appareils et leurs entités
     await setup_devices_and_entities(hass, entry, devices)
 
@@ -64,9 +67,10 @@ async def setup_devices_and_entities(hass, entry, devices):
 
     for device in devices:
         device_name = device["device_name"]
+        unique_id = device["unique_id"]
         device_id = device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, device["unique_id"])},
+            identifiers={(DOMAIN, unique_id)},
             name=device_name,
             manufacturer="GCE Electronics",
             model="IPX800_V1",
@@ -81,6 +85,15 @@ async def setup_devices_and_entities(hass, entry, devices):
 
         if not entity_registry.async_is_registered(sensor_entity_id):
             await hass.config_entries.async_forward_entry_setup(entry, "sensor")
+
+async def remove_existing_entities(hass, entry):
+    entity_registry = er.async_get(hass)
+    entities_to_remove = [
+        entity_id for entity_id in entity_registry.entities
+        if entity_registry.async_get(entity_id).config_entry_id == entry.entry_id
+    ]
+    for entity_id in entities_to_remove:
+        entity_registry.async_remove(entity_id)
 
 class IPX800V1Coordinator(DataUpdateCoordinator):
     def __init__(self, hass, config_entry, update_interval, websocket_url):
@@ -163,7 +176,7 @@ class IPX800V1Coordinator(DataUpdateCoordinator):
         db_path = f"/config/ipx800_{ip_address}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT device_name, input_button, select_leds, unique_id, variable_etat_name FROM devices')
+        cursor.execute('SELECT DISTINCT device_name, input_button, select_leds, unique_id, variable_etat_name FROM devices')
         rows = cursor.fetchall()
         devices = []
         for row in rows:

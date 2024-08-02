@@ -2,31 +2,41 @@ import logging
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 import sqlite3
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+def clean_entity_name(name):
+    return name.lower().replace(' ', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('à', 'a').replace('ç', 'c')
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug("Setting up IPX800 sensor entities")
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     entities = []
-
+    _LOGGER.debug(f"config_entry: {config_entry}")
     devices = config_entry.data.get("devices", [])
     _LOGGER.debug(f"Devices in config entry data: {devices}")
     if not devices:
         _LOGGER.warning("No devices found in config entry data.")
 
+    entity_registry = async_get_entity_registry(hass)
+
     for device in devices:
         device_name = device["device_name"]
         select_leds = device["select_leds"]
-        _LOGGER.debug(f"Adding sensor entity: {device_name} Light Sensor")
+        unique_id = f"{config_entry.entry_id}_{clean_entity_name(device_name)}_light_sensor"
 
-        entities.append(IPX800LightSensor(coordinator, config_entry, device_name, select_leds))
+        if unique_id in entity_registry.entities:
+            _LOGGER.warning(f"Entity with unique_id {unique_id} already exists. Skipping.")
+            continue
+
+        _LOGGER.debug(f"Adding sensor entity: {device_name} Light Sensor")
+        entities.append(IPX800LightSensor(coordinator, config_entry, device_name, select_leds, unique_id))
 
     _LOGGER.debug(f"Sensor entities to add: {entities}")
     async_add_entities(entities)
-
 
 class IPX800Base(CoordinatorEntity):
     def __init__(self, coordinator, config_entry, device_name, select_leds):
@@ -52,14 +62,14 @@ class IPX800Base(CoordinatorEntity):
         return {
             "select_leds": self._select_leds,
         }
-    
+
 class IPX800LightSensor(IPX800Base, SensorEntity):
-    def __init__(self, coordinator, config_entry, device_name, select_leds):
+    def __init__(self, coordinator, config_entry, device_name, select_leds, unique_id):
         super().__init__(coordinator, config_entry, device_name, select_leds)
         self._is_on = False
         self._attr_name = f"{device_name} Light Sensor"
-        self._attr_unique_id = f"{config_entry.entry_id}_{device_name}_light_sensor"
-        self._variable_etat_name = f"etat_{device_name.lower().replace(' ', '_')}"
+        self._attr_unique_id = unique_id
+        self._variable_etat_name = f"etat_{clean_entity_name(device_name)}"
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""
