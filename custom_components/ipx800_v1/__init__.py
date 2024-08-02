@@ -14,6 +14,10 @@ from .const import DOMAIN, IP_ADDRESS, POLL_INTERVAL, WEBSOCKET_URL, WS_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
+def clean_entity_name(name):
+    return name.lower().replace(' ', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('à', 'a').replace('ç', 'c')
+
+
 async def async_setup(hass: HomeAssistant, config: dict):
     hass.http.register_view(IPX800View)
     return True
@@ -33,19 +37,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Charger les appareils depuis la base de données
     devices = await coordinator.load_devices()
-
-    # Cloner les données de l'entrée de configuration
     data = {**entry.data, "devices": devices}
-
-    # Mettre à jour l'entrée de configuration
     hass.config_entries.async_update_entry(entry, data=data)
 
-    # Supprimer les entités existantes avant d'ajouter de nouvelles
     await remove_existing_entities(hass, entry)
-
-    # Créer des sous-appareils et leurs entités
     await setup_devices_and_entities(hass, entry, devices)
 
     # Start the WebSocket connection
@@ -77,14 +73,14 @@ async def setup_devices_and_entities(hass, entry, devices):
             via_device=(DOMAIN, entry.entry_id)
         ).id
 
-        light_entity_id = f"light.{device_name.lower().replace(' ', '_')}_light"
-        sensor_entity_id = f"sensor.{device_name.lower().replace(' ', '_')}_light_sensor"
+        light_entity_id = f"light.{clean_entity_name(device_name)}"
+        sensor_entity_id = f"sensor.{clean_entity_name(device_name)}"
 
         if not entity_registry.async_is_registered(light_entity_id):
-            await hass.config_entries.async_forward_entry_setup(entry, "light")
+            await hass.config_entries.async_forward_entry_setups(entry, ["light"])
 
         if not entity_registry.async_is_registered(sensor_entity_id):
-            await hass.config_entries.async_forward_entry_setup(entry, "sensor")
+            await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
 async def remove_existing_entities(hass, entry):
     entity_registry = er.async_get(hass)

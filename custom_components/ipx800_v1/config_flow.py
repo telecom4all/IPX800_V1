@@ -123,7 +123,6 @@ class IPX800OptionsFlowHandler(config_entries.OptionsFlow):
 
                 self.hass.config_entries.async_update_entry(self.config_entry, data={**self.config_entry.data, "devices": devices})
 
-                # Ajouter les entités pour le nouveau sous-appareil
                 await add_new_entities(self.hass, self.config_entry, [new_device])
 
                 async with websockets.connect(f'ws://localhost:{WS_PORT}') as websocket:

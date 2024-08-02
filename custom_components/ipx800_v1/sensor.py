@@ -45,12 +45,13 @@ class IPX800Base(CoordinatorEntity):
         self._name = device_name
         self._select_leds = select_leds
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_name)},
+            identifiers={(DOMAIN, clean_entity_name(device_name))},
             name=device_name,
             manufacturer="GCE Electronics",
             model="IPX800_V1",
             via_device=(DOMAIN, config_entry.entry_id)
         )
+        self._attr_unique_id = f"{config_entry.entry_id}_{clean_entity_name(device_name)}"
         _LOGGER.debug(f"Initialized IPX800 entity: {self._name}")
 
     @property
@@ -82,7 +83,6 @@ class IPX800LightSensor(IPX800Base, SensorEntity):
 
     @property
     def state(self):
-        # Ici, nous devons lire l'état de `state` à partir de la base de données
         db_path = f"/config/ipx800_{self.coordinator.config_entry.data['ip_address']}.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
