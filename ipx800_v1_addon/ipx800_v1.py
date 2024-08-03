@@ -89,7 +89,6 @@ async def init_device(data):
     conn.close()
 
     asyncio.create_task(poll_ipx800(ip_address, poll_interval))
-    asyncio.create_task(manage_led_state(device_name, ip_address, poll_interval))
 
 async def add_device(data):
     device_name = data["device_name"]
@@ -115,23 +114,6 @@ async def add_device(data):
     conn.close()
     logger.info(f"Device {device_name} added with leds {select_leds} and variable {variable_etat_name}.")
     
-
-async def manage_led_state(device_name, ip_address, poll_interval):
-    db_path = f"/config/ipx800_{ip_address}.db"
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT variable_etat_name, select_leds FROM devices WHERE device_name = ?', (device_name,))
-    rows = cursor.fetchall()
-    if rows:
-        variable_etat_name, select_leds = rows[0]
-        while True:
-            cursor.execute(f"SELECT {variable_etat_name} FROM devices WHERE device_name = ?", (device_name,))
-            variable_state = cursor.fetchone()[0]
-            leds = select_leds.split(',')
-            for led in leds:
-                await set_led_state({"state": variable_state == 'on', "leds": [led], "ip_address": ip_address, "variable_etat_name": variable_etat_name, "device_name": device_name})
-            await asyncio.sleep(poll_interval)
-    conn.close()
 
 async def set_led_state(data):
     state = data["state"]
@@ -187,26 +169,66 @@ async def get_data(websocket, data):
     conn.close()
 
 async def poll_ipx800(ip_address, interval):
+    previous_status = {}
     while True:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'http://{ip_address}/status.xml') as response:
                     response_text = await response.text()
-                    await process_status(response_text, ip_address)
+                    await process_status(response_text, ip_address, previous_status)
         except Exception as e:
             logger.error(f"Error polling IPX800: {e}")
         await asyncio.sleep(interval)
 
-async def process_status(xml_data, ip_address):
+async def process_status(xml_data, ip_address, previous_status):
     root = ET.fromstring(xml_data)
-    status = {}
-    for child in root:
-        status[child.tag] = child.text
+    status = {child.tag: child.text for child in root}
 
     logger.info(f"Status: {status}")
+    
+    # Vérifier les changements d'état des boutons
+    for btn in ['btn0', 'btn1', 'btn2', 'btn3']:
+        if btn in status and previous_status.get(btn) != status[btn]:
+            await handle_button_change(ip_address, btn, status[btn])
+
+    previous_status.update(status)
+
     # Notify all connected clients with the new status
     message = json.dumps({"action": "status_update", "status": status})
     await notify_clients(message)
+
+async def handle_button_change(ip_address, btn, state):
+    logger.info(f"Button {btn} changed state to {state}")
+    db_path = f"/config/ipx800_{ip_address}.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT device_name, select_leds, state FROM devices WHERE input_button = ?', (btn,))
+    rows = cursor.fetchall()
+
+    for row in rows:
+        device_name, select_leds, current_state = row
+        new_state = 'off' if current_state == 'on' else 'on'
+        leds = select_leds.split(',')
+        await set_led_state({
+            "state": new_state == 'on',
+            "leds": leds,
+            "ip_address": ip_address,
+            "variable_etat_name": f'etat_{clean_entity_name(device_name)}',
+            "device_name": device_name
+        })
+        
+        # Mettre à jour l'état dans la base de données
+        cursor.execute(f"UPDATE devices SET state = ? WHERE device_name = ?", (new_state, device_name))
+        conn.commit()
+        
+        # Mettre à jour l'état dans Home Assistant
+        await notify_clients(json.dumps({
+            "action": "update_entity_state",
+            "entity_id": f"light.{clean_entity_name(device_name)}",
+            "state": new_state
+        }))
+
+    conn.close()
 
 async def notify_clients(message):
     if clients:
@@ -221,6 +243,9 @@ async def main():
         except Exception as e:
             logger.error(f"WebSocket server error: {e}")
             await asyncio.sleep(5)  # wait before retrying
+
+def clean_entity_name(name):
+    return name.lower().replace(' ', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('à', 'a').replace('ç', 'c')
 
 if __name__ == "__main__":
     logger.info(f"Starting WebSocket server on ws://0.0.0.0:{WS_PORT}")
